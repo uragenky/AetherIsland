@@ -15,7 +15,7 @@ An ultra-lightweight, high-performance Dynamic Island utility for Windows with a
 
 2. **Liquid Morphing Dynamic Island**
    - Transisi fisik lentur berbasis spring physics (*Framer Motion*).
-   - Mode visual adaptif: **Idle Emoticon Capsule** (hanya menampilkan emoticon companion saat tidak ada media; klik emoticon untuk memperluas ringkasan metrik hardware CPU, RAM, GPU, & Bandwidth), **Compact Media Pill** (otomatis muncul saat media aktif), **Expanded Dashboard**, dan **Live Synced Lyrics**.
+   - Mode visual adaptif: **Idle Emoticon Capsule** (hanya menampilkan emoticon companion saat tidak ada media; dobel klik pada mata untuk toggle ringkasan metrik icon-only CPU, RAM, GPU, & Download/Upload Bandwidth, dobel klik pada stats untuk membuka dashboard penuh), **Compact Media Pill** (otomatis muncul saat media aktif), **Expanded Dashboard**, dan **Live Synced Lyrics**.
    - Penyesuaian ukuran window native OS dinamis untuk mencegah click-blocking pada elemen desktop di bawahnya.
 
 3. **System Resource Monitor**

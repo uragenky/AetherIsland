@@ -150,18 +150,18 @@ The island operates in three visual modes:
    - **Idle Emoticon Capsule (Default)**:
      - Size: `84px x 36px` (Native window: `92px x 42px`, Border-radius: `9999px` / notched `20px`)
      - Centered: Expressive SVG Eyes Companion emoticon only. Zero distraction or visual clutter.
-     - Interactions: Click to expand quick hardware stats pill, drag to reposition, double-click for full dashboard.
-   - **Idle Hardware Stats Pill (On Emoticon Click)**:
-     - Size: `320px x 38px` (Native window: `330px x 44px`)
-     - Left: Expressive SVG Eyes Companion (reacts to hardware stress if CPU/RAM/GPU > 80%).
-     - Center: Live telemetry indicators: `CPU %`, `RAM %`, `GPU %`, and real-time network download bandwidth `↓Speed`.
-     - Right: Quick collapse minimize icon. Clicking the emoticon again also collapses back to the 84px capsule.
+     - Interactions: Single-click on eye to wink, double-click on eye to toggle hardware stats pill, drag to reposition.
+   - **Idle Hardware Stats Pill (Double-Click on Eye)**:
+     - Size: `330px x 38px` (Native window: `340px x 44px`)
+     - Left: Expressive SVG Eyes Companion (single-click to wink, double-click to collapse back to capsule).
+     - Center: Icon-only live telemetry indicators: `<Cpu /> %`, `<HardDrive /> %` (RAM), `<Zap /> %` (GPU), and `<ArrowDown />` / `<ArrowUp />` bandwidth speeds.
+     - Interactions: Double-click on the stats area opens the full dashboard. No arrow buttons required.
 
 2. **Compact Media Pill (Active Playback)**:
    - Size: `320px x 38px` (Native window: `330px x 44px`)
    - Left: Eyes companion with groove/music animation.
    - Middle: Single-line scrolling marquee of current track & artist or active lyric snippet.
-   - Right: Real-time animated audio visualizer bars and quick expand toggle.
+   - Right: Real-time animated audio visualizer bars. Double-click anywhere expands to full dashboard.
 
 3. **Expanded Island (Double-Click or Expand Button)**:
    - Size: `430px x 270px` (Native window: `440px x 285px`, Border-radius: `24px` / notched `26px`)

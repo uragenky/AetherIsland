@@ -8,6 +8,7 @@ interface EyesCompanionProps {
   cpuUsage: number;
   size?: 'small' | 'medium' | 'large';
   onClick?: () => void;
+  onDoubleClick?: () => void;
 }
 
 export const EyesCompanion: React.FC<EyesCompanionProps> = ({
@@ -16,6 +17,7 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
   cpuUsage,
   size = 'small',
   onClick,
+  onDoubleClick,
 }) => {
   const [internalWink, setInternalWink] = useState(false);
   const [isBlinking, setIsBlinking] = useState(false);
@@ -80,6 +82,11 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
     onClick?.();
   };
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDoubleClick?.();
+  };
+
   const scale = size === 'large' ? 1.3 : size === 'medium' ? 1.1 : 0.88;
 
   // Dynamic glow color based on system health & music
@@ -100,8 +107,9 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
   return (
     <div
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       className="flex items-center justify-center gap-2 cursor-pointer py-0.5 px-1 rounded-full select-none hover:opacity-90 transition-opacity"
-      title="Aether Companion (Click to wink)"
+      title="Aether Companion (Click to wink, double-click to toggle stats)"
       style={{
         display: 'flex',
         flexDirection: 'row',

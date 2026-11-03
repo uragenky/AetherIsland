@@ -12,7 +12,14 @@ import {
   MediaSessionInfo,
   LyricsData,
 } from '../types';
-import { Activity, Music2, Disc, Maximize2, Minimize2 } from 'lucide-react';
+import { Activity, Music2, Disc, Minimize2, Cpu, HardDrive, Zap, ArrowDown, ArrowUp } from 'lucide-react';
+
+const formatSpeed = (kbps: number) => {
+  if (kbps >= 1024) {
+    return `${(kbps / 1024).toFixed(1)}M`;
+  }
+  return `${kbps.toFixed(0)}K`;
+};
 
 interface DynamicIslandProps {
   metrics: SystemMetrics;
@@ -62,8 +69,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     const resizeWindow = async () => {
       try {
         if (mode === 'compact') {
-          if (isMediaActive || showIdleStats) {
+          if (isMediaActive) {
             await invoke('set_island_window_size', { width: 330.0, height: 44.0, yOffset: 0.0 });
+          } else if (showIdleStats) {
+            await invoke('set_island_window_size', { width: 340.0, height: 44.0, yOffset: 0.0 });
           } else {
             await invoke('set_island_window_size', { width: 92.0, height: 42.0, yOffset: 0.0 });
           }
@@ -118,7 +127,6 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           damping: 30,
           mass: 0.8,
         }}
-        onDoubleClick={toggleExpand}
         style={{
           backgroundColor: '#000000',
           border: isNotch
@@ -147,7 +155,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
             ? isMediaActive || showIdleStats
-              ? 'px-3 py-1 flex items-center justify-between w-[320px] h-[38px]'
+              ? 'px-3 py-1 flex items-center justify-between w-[330px] h-[38px]'
               : 'px-2 py-1 flex items-center justify-center w-[84px] h-[36px]'
             : 'p-4 w-[430px] min-h-[270px] flex flex-col justify-between'
         }`}
@@ -156,29 +164,33 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         {mode === 'compact' && (
           isMediaActive ? (
             <div
-              className="flex items-center justify-between w-full h-full gap-2"
+              className="flex items-center justify-between w-full h-full gap-2 px-1"
               style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
             >
               {/* Eyes Companion (Left) */}
               <div
                 className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
                 style={{ display: 'inline-flex', alignItems: 'center' }}
-                onClick={toggleExpand}
-                title="Click to expand island"
+                title="Double-click to expand dashboard"
               >
                 <EyesCompanion
                   mood="idle"
                   isMusicPlaying={media.is_playing}
                   cpuUsage={metrics.cpu_usage}
                   size="small"
+                  onDoubleClick={toggleExpand}
                 />
               </div>
 
-              {/* Middle Content (Draggable Area) */}
+              {/* Middle Content (Draggable Area, Double-Click to Expand Dashboard) */}
               <div
                 onMouseDown={handleStartDrag}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpand();
+                }}
                 className="flex-1 min-w-0 flex items-center justify-center px-1 overflow-hidden cursor-grab active:cursor-grabbing"
-                title="Drag to reposition (Move near top bezel to snap into Notch)"
+                title="Drag to reposition, double-click to expand dashboard"
               >
                 <div className="flex items-center gap-1.5 max-w-full text-xs truncate pointer-events-none">
                   <span className="text-cyan-300 font-medium truncate text-[11px]">
@@ -187,130 +199,123 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 </div>
               </div>
 
-              {/* Right Status & Expand Button */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <div
-                  onClick={toggleExpand}
-                  className="flex items-center gap-0.5 h-3 px-1 cursor-pointer"
-                  title="Expand island"
-                >
-                  <motion.div
-                    animate={{ height: ['4px', '13px', '6px'] }}
-                    transition={{ repeat: Infinity, duration: 0.55 }}
-                    className="w-0.5 bg-cyan-400 rounded-full"
-                  />
-                  <motion.div
-                    animate={{ height: ['12px', '5px', '14px'] }}
-                    transition={{ repeat: Infinity, duration: 0.45, delay: 0.1 }}
-                    className="w-0.5 bg-sky-400 rounded-full"
-                  />
-                  <motion.div
-                    animate={{ height: ['5px', '14px', '4px'] }}
-                    transition={{ repeat: Infinity, duration: 0.65, delay: 0.2 }}
-                    className="w-0.5 bg-blue-400 rounded-full"
-                  />
-                </div>
-
-                {/* Expand Toggle Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleExpand();
-                  }}
-                  className="text-neutral-500 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
-                  title="Expand Island"
-                >
-                  <Maximize2 className="w-3 h-3" />
-                </button>
+              {/* Right Mini Audio Visualizer */}
+              <div
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpand();
+                }}
+                className="flex items-center gap-0.5 h-3 px-1 cursor-pointer flex-shrink-0"
+                title="Double-click to expand dashboard"
+              >
+                <motion.div
+                  animate={{ height: ['4px', '13px', '6px'] }}
+                  transition={{ repeat: Infinity, duration: 0.55 }}
+                  className="w-0.5 bg-cyan-400 rounded-full"
+                />
+                <motion.div
+                  animate={{ height: ['12px', '5px', '14px'] }}
+                  transition={{ repeat: Infinity, duration: 0.45, delay: 0.1 }}
+                  className="w-0.5 bg-sky-400 rounded-full"
+                />
+                <motion.div
+                  animate={{ height: ['5px', '14px', '4px'] }}
+                  transition={{ repeat: Infinity, duration: 0.65, delay: 0.2 }}
+                  className="w-0.5 bg-blue-400 rounded-full"
+                />
               </div>
             </div>
           ) : showIdleStats ? (
-            /* IDLE STATS EXPANDED MODE: EYES ON LEFT + PROC, RAM, GPU, BANDWIDTH */
+            /* IDLE STATS MODE: EYES (DOUBLE-CLICK TO HIDE) + ICON-ONLY STATS (DOUBLE-CLICK FOR DASHBOARD) */
             <div
-              className="flex items-center justify-between w-full h-full gap-2 px-0.5"
+              className="flex items-center justify-between w-full h-full gap-2 px-1"
               style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
             >
-              {/* Eyes Companion (Left - click to collapse) */}
+              {/* Eyes Companion (Left - double-click to collapse stats) */}
               <div
                 className="flex items-center gap-1 flex-shrink-0 cursor-pointer"
                 style={{ display: 'inline-flex', alignItems: 'center' }}
-                onClick={() => setShowIdleStats(false)}
-                title="Click emoticon to hide stats"
+                title="Double-click eye to hide stats, click to wink"
               >
                 <EyesCompanion
                   mood="idle"
                   isMusicPlaying={false}
                   cpuUsage={metrics.cpu_usage}
                   size="small"
-                  onClick={() => setShowIdleStats(false)}
+                  onDoubleClick={() => setShowIdleStats(false)}
                 />
               </div>
 
-              {/* Hardware Stats (Middle - Draggable) */}
+              {/* Hardware Stats (Middle - Draggable, Double-click to expand dashboard) */}
               <div
                 onMouseDown={handleStartDrag}
-                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 text-[10px] font-mono text-neutral-300 select-none overflow-hidden cursor-grab active:cursor-grabbing px-1"
-                title="Drag to reposition, double-click to expand dashboard"
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpand();
+                }}
+                className="flex-1 min-w-0 flex items-center justify-center gap-2 text-[10px] font-mono text-neutral-300 select-none overflow-hidden cursor-grab active:cursor-grabbing px-1"
+                title="Drag to reposition, double-click for full dashboard"
               >
-                <span className="flex items-center gap-0.5">
-                  <span className="text-neutral-500 font-sans text-[8.5px] uppercase">CPU</span>
+                {/* CPU */}
+                <div className="flex items-center gap-1" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
+                  <Cpu className="w-3 h-3 text-emerald-400 flex-shrink-0" />
                   <span className={metrics.cpu_usage > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
                     {metrics.cpu_usage.toFixed(0)}%
                   </span>
-                </span>
-                <span className="text-neutral-600">•</span>
-                <span className="flex items-center gap-0.5">
-                  <span className="text-neutral-500 font-sans text-[8.5px] uppercase">RAM</span>
+                </div>
+
+                <span className="text-neutral-700">•</span>
+
+                {/* RAM */}
+                <div className="flex items-center gap-1" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
+                  <HardDrive className="w-3 h-3 text-sky-400 flex-shrink-0" />
                   <span className={metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
                     {metrics.ram_percentage.toFixed(0)}%
                   </span>
-                </span>
-                <span className="text-neutral-600">•</span>
-                <span className="flex items-center gap-0.5">
-                  <span className="text-neutral-500 font-sans text-[8.5px] uppercase">GPU</span>
+                </div>
+
+                <span className="text-neutral-700">•</span>
+
+                {/* GPU */}
+                <div className="flex items-center gap-1" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
+                  <Zap className="w-3 h-3 text-amber-400 flex-shrink-0" />
                   <span className={(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
                     {(metrics.gpu_usage ?? 0).toFixed(0)}%
                   </span>
-                </span>
-                <span className="text-neutral-600">•</span>
-                <span className="flex items-center gap-0.5 text-cyan-300 font-semibold">
-                  <span>↓</span>
-                  <span>
-                    {metrics.net_download_kbps > 1024
-                      ? `${(metrics.net_download_kbps / 1024).toFixed(1)}M`
-                      : `${metrics.net_download_kbps.toFixed(0)}K`}
-                  </span>
-                </span>
-              </div>
+                </div>
 
-              {/* Collapse Action */}
-              <div className="flex items-center flex-shrink-0">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowIdleStats(false);
-                  }}
-                  className="text-neutral-500 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
-                  title="Collapse to emoticon only"
-                >
-                  <Minimize2 className="w-3 h-3" />
-                </button>
+                <span className="text-neutral-700">•</span>
+
+                {/* Bandwidth Download & Upload */}
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <span className="flex items-center gap-0.5 text-emerald-300" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
+                    <ArrowDown className="w-2.5 h-2.5 flex-shrink-0" />
+                    <span>{formatSpeed(metrics.net_download_kbps)}</span>
+                  </span>
+                  <span className="flex items-center gap-0.5 text-sky-300" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
+                    <ArrowUp className="w-2.5 h-2.5 flex-shrink-0" />
+                    <span>{formatSpeed(metrics.net_upload_kbps)}</span>
+                  </span>
+                </div>
               </div>
             </div>
           ) : (
             /* IDLE MINIMALIST MODE: ONLY EYES COMPANION */
             <div
               onMouseDown={handleStartDrag}
-              onClick={() => setShowIdleStats(true)}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setShowIdleStats(true);
+              }}
               className="flex items-center justify-center w-full h-full cursor-pointer active:cursor-grabbing"
-              title="Click to view CPU, RAM, GPU & Bandwidth stats (Double-click for full dashboard)"
+              title="Click to wink, double-click to view stats, drag to move"
             >
               <EyesCompanion
                 mood="idle"
                 isMusicPlaying={false}
                 cpuUsage={metrics.cpu_usage}
                 size="small"
-                onClick={() => setShowIdleStats(true)}
+                onDoubleClick={() => setShowIdleStats(true)}
               />
             </div>
           )
