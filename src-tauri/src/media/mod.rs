@@ -102,7 +102,23 @@ impl MediaManager {
 
     pub fn update_from_native(&self, info: MediaSessionInfo) {
         let mut curr = self.current.lock().unwrap();
-        *curr = info;
+        let track_changed = curr.title != info.title || curr.artist != info.artist;
+        if track_changed {
+            *curr = info;
+            return;
+        }
+
+        curr.is_playing = info.is_playing;
+        curr.has_media = info.has_media;
+        if info.duration_ms > 0 {
+            curr.duration_ms = info.duration_ms;
+        }
+
+        // Only accept native position if it significantly changed (user seeked > 2500ms)
+        let diff = (info.position_ms as i64 - curr.position_ms as i64).abs();
+        if diff > 2500 && info.position_ms > 0 {
+            curr.position_ms = info.position_ms;
+        }
     }
 }
 
@@ -112,15 +128,19 @@ pub fn start_media_service(app_handle: AppHandle, manager: Arc<MediaManager>) {
         windows_media::init_windows_smtc(app_handle.clone(), manager.clone());
     }
 
-    // Background playback position progress ticker (updates position every second if playing)
+    // Background playback position progress ticker (updates position every 500ms if playing)
     tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(1000));
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
         loop {
             interval.tick().await;
             {
                 let mut curr = manager.current.lock().unwrap();
                 if curr.is_playing {
-                    curr.position_ms = (curr.position_ms + 1000).min(curr.duration_ms);
+                    if curr.duration_ms > 0 {
+                        curr.position_ms = (curr.position_ms + 500).min(curr.duration_ms);
+                    } else {
+                        curr.position_ms += 500;
+                    }
                 }
             }
             let info = manager.get_info();

@@ -75,6 +75,13 @@ export function App() {
     })
       .then((data) => {
         setLyricsData(data);
+        if (data.parsed_lines && data.parsed_lines.length > 0) {
+          const lastLineTime = data.parsed_lines[data.parsed_lines.length - 1].time_ms + 15000;
+          setMedia((prev) => ({
+            ...prev,
+            duration_ms: prev.duration_ms > 0 ? prev.duration_ms : lastLineTime,
+          }));
+        }
       })
       .catch(() => {
         // Fallback or empty lyrics state
@@ -90,6 +97,23 @@ export function App() {
         setIsLyricsLoading(false);
       });
   }, [media.title, media.artist, media.duration_ms]);
+
+  // Local micro-clock for smooth sub-second progress and auto-scrolling lyrics
+  useEffect(() => {
+    if (!media.is_playing) return;
+    const interval = setInterval(() => {
+      setMedia((prev) => {
+        if (!prev.is_playing) return prev;
+        const nextPos = prev.position_ms + 250;
+        const maxPos = prev.duration_ms > 0 ? prev.duration_ms : Infinity;
+        return {
+          ...prev,
+          position_ms: Math.min(nextPos, maxPos),
+        };
+      });
+    }, 250);
+    return () => clearInterval(interval);
+  }, [media.is_playing, media.duration_ms]);
 
   // Media Controls handlers
   const handlePlayPause = async () => {

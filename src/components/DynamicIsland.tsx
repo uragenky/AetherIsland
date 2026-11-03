@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -12,7 +12,23 @@ import {
   MediaSessionInfo,
   LyricsData,
 } from '../types';
-import { Activity, Music2, Disc, Minimize2, Cpu, HardDrive, Zap, ArrowDown, ArrowUp } from 'lucide-react';
+import {
+  Activity,
+  Music2,
+  Disc,
+  Minimize2,
+  Cpu,
+  HardDrive,
+  Zap,
+  ArrowDown,
+  ArrowUp,
+  Mic2,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+} from 'lucide-react';
+import { hasNonLatinScript, transliterateText } from '../utils/transliterate';
 
 const formatSpeed = (kbps: number) => {
   if (kbps >= 1024) {
@@ -70,7 +86,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       try {
         if (mode === 'compact') {
           if (isMediaActive) {
-            await invoke('set_island_window_size', { width: 330.0, height: 44.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: 380.0, height: 44.0, yOffset: 0.0 });
           } else if (showIdleStats) {
             await invoke('set_island_window_size', { width: 340.0, height: 44.0, yOffset: 0.0 });
           } else {
@@ -94,9 +110,30 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     }
   };
 
-  const handleStartDrag = (e: React.MouseEvent) => {
+  const hasLyrics = Boolean(lyricsData && lyricsData.parsed_lines && lyricsData.parsed_lines.length > 0);
+
+  // Drag threshold handler to avoid swallowing clicks and double-clicks
+  const dragStartRef = useRef<{ x: number; y: number; isDown: boolean } | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button === 0) {
-      invoke('start_window_drag').catch(() => {});
+      dragStartRef.current = { x: e.screenX, y: e.screenY, isDown: true };
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (dragStartRef.current && dragStartRef.current.isDown) {
+      const dist = Math.hypot(e.screenX - dragStartRef.current.x, e.screenY - dragStartRef.current.y);
+      if (dist > 5) {
+        dragStartRef.current.isDown = false;
+        invoke('start_window_drag').catch(() => {});
+      }
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (dragStartRef.current) {
+      dragStartRef.current.isDown = false;
     }
   };
 
@@ -116,6 +153,14 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     }
     return text;
   }, [lyricsData, media.position_ms]);
+
+  const compactLyricDisplay = useMemo(() => {
+    if (!compactLyricText) return null;
+    if (hasNonLatinScript(compactLyricText)) {
+      return transliterateText(compactLyricText);
+    }
+    return compactLyricText;
+  }, [compactLyricText]);
 
   return (
     <div className="fixed top-0 left-0 right-0 flex justify-center items-start select-none pointer-events-auto">
@@ -154,8 +199,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         }}
         className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
-            ? isMediaActive || showIdleStats
-              ? 'px-3 py-1 flex items-center justify-between w-[330px] h-[38px]'
+            ? isMediaActive
+              ? 'px-3 py-1 flex items-center justify-between w-[370px] h-[38px]'
+              : showIdleStats
+              ? 'px-3 py-1 flex items-center justify-between w-[340px] h-[38px]'
               : 'px-2 py-1 flex items-center justify-center w-[84px] h-[36px]'
             : 'p-4 w-[430px] min-h-[270px] flex flex-col justify-between'
         }`}
@@ -164,7 +211,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         {mode === 'compact' && (
           isMediaActive ? (
             <div
-              className="flex items-center justify-between w-full h-full gap-2 px-1"
+              className="flex items-center justify-between w-full h-full gap-1.5 px-0.5"
               style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
             >
               {/* Eyes Companion (Left) */}
@@ -182,9 +229,25 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 />
               </div>
 
+              {/* Lyrics Icon Button (Shown if lyrics exist, click to open lyrics) */}
+              {hasLyrics && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMode('lyrics');
+                  }}
+                  className="p-1 rounded-full text-cyan-400 hover:text-white hover:bg-cyan-500/20 transition-all cursor-pointer flex-shrink-0"
+                  title="Lyrics Available — Click to view Live Lyrics"
+                >
+                  <Mic2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+
               {/* Middle Content (Draggable Area, Double-Click to Expand Dashboard) */}
               <div
-                onMouseDown={handleStartDrag}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   toggleExpand();
@@ -194,9 +257,43 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               >
                 <div className="flex items-center gap-1.5 max-w-full text-xs truncate pointer-events-none">
                   <span className="text-cyan-300 font-medium truncate text-[11px]">
-                    {compactLyricText ? `♪ ${compactLyricText}` : `${media.title} — ${media.artist}`}
+                    {compactLyricDisplay ? `♪ ${compactLyricDisplay}` : `${media.title} — ${media.artist}`}
                   </span>
                 </div>
+              </div>
+
+              {/* Compact Media Transport Controls (Prev, Play/Pause, Next) */}
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPrev();
+                  }}
+                  className="p-1 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                  title="Previous Track"
+                >
+                  <SkipBack className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPlayPause();
+                  }}
+                  className="p-1 text-white hover:text-cyan-300 transition-colors cursor-pointer"
+                  title={media.is_playing ? 'Pause' : 'Play'}
+                >
+                  {media.is_playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNext();
+                  }}
+                  className="p-1 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                  title="Next Track"
+                >
+                  <SkipForward className="w-3 h-3" />
+                </button>
               </div>
 
               {/* Right Mini Audio Visualizer */}
@@ -205,7 +302,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   e.stopPropagation();
                   toggleExpand();
                 }}
-                className="flex items-center gap-0.5 h-3 px-1 cursor-pointer flex-shrink-0"
+                className="flex items-center gap-0.5 h-3 px-0.5 cursor-pointer flex-shrink-0"
                 title="Double-click to expand dashboard"
               >
                 <motion.div
@@ -248,7 +345,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
               {/* Hardware Stats (Middle - Draggable, Double-click to expand dashboard) */}
               <div
-                onMouseDown={handleStartDrag}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   toggleExpand();
@@ -302,7 +401,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           ) : (
             /* IDLE MINIMALIST MODE: ONLY EYES COMPANION */
             <div
-              onMouseDown={handleStartDrag}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
               onDoubleClick={(e) => {
                 e.stopPropagation();
                 setShowIdleStats(true);
@@ -335,7 +436,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             >
               {/* Header: Eyes Companion & Mode Switcher (Draggable) */}
               <div
-                onMouseDown={handleStartDrag}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
                 className="flex items-center justify-between pb-2.5 border-b border-white/10 mb-2 cursor-grab active:cursor-grabbing"
                 title="Drag header to move"
               >

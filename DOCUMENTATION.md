@@ -150,18 +150,24 @@ The island operates in three visual modes:
    - **Idle Emoticon Capsule (Default)**:
      - Size: `84px x 36px` (Native window: `92px x 42px`, Border-radius: `9999px` / notched `20px`)
      - Centered: Expressive SVG Eyes Companion emoticon only. Zero distraction or visual clutter.
-     - Interactions: Single-click on eye to wink, double-click on eye to toggle hardware stats pill, drag to reposition.
+     - Interactions: Single-click on eye to wink, double-click on eye to toggle hardware stats pill, drag with 5px movement threshold to reposition.
    - **Idle Hardware Stats Pill (Double-Click on Eye)**:
-     - Size: `330px x 38px` (Native window: `340px x 44px`)
+     - Size: `340px x 38px` (Native window: `340px x 44px`)
      - Left: Expressive SVG Eyes Companion (single-click to wink, double-click to collapse back to capsule).
      - Center: Icon-only live telemetry indicators: `<Cpu /> %`, `<HardDrive /> %` (RAM), `<Zap /> %` (GPU), and `<ArrowDown />` / `<ArrowUp />` bandwidth speeds.
      - Interactions: Double-click on the stats area opens the full dashboard. No arrow buttons required.
 
 2. **Compact Media Pill (Active Playback)**:
-   - Size: `320px x 38px` (Native window: `330px x 44px`)
-   - Left: Eyes companion with groove/music animation.
-   - Middle: Single-line scrolling marquee of current track & artist or active lyric snippet.
-   - Right: Real-time animated audio visualizer bars. Double-click anywhere expands to full dashboard.
+   - Size: `370px x 38px` (Native window: `380px x 44px`)
+   - Left: Eyes companion with groove/music animation + `<Mic2 />` lyrics button (opens Synced Lyrics view when lyrics exist).
+   - Middle: Single-line scrolling marquee of current track & artist or active lyric snippet (with Romanized Latin text for non-Latin songs).
+   - Right: Quick media playback controls (Previous, Play/Pause, Next) + Real-time animated audio visualizer bars. Double-click anywhere expands to full dashboard.
+
+3. **Expanded Island (Double-Click or Expand Button)**:
+   - Size: `430px x 270px` (Native window: `440px x 285px`, Border-radius: `24px` / notched `26px`)
+   - **Header**: Eyes companion with mood status + Mode/Tab switchers (Media / System) + minimize button.
+   - **Body Left/Center**: Full media controls, album artwork, and synced lyrics view with automatic Latin/Romaji transliteration for Japanese (Kana/Kanji), Korean (Hangul), Arabic, and Cyrillic, or comprehensive system resource metrics dashboard (CPU, RAM, GPU, Network, Battery).
+   - **Footer/Mini-bar**: Quick media toggle or detailed hardware telemetry.
 
 3. **Expanded Island (Double-Click or Expand Button)**:
    - Size: `430px x 270px` (Native window: `440px x 285px`, Border-radius: `24px` / notched `26px`)

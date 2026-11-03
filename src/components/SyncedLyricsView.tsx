@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LyricLine, LyricsData } from '../types';
-import { Sparkles, ArrowLeft, Disc3 } from 'lucide-react';
+import { Sparkles, ArrowLeft, Disc3, Languages } from 'lucide-react';
+import { hasNonLatinScript, transliterateText } from '../utils/transliterate';
 
 interface SyncedLyricsViewProps {
   lyricsData: LyricsData | null;
@@ -19,6 +20,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLDivElement>(null);
+  const [showRomanized, setShowRomanized] = useState(true);
 
   // Find index of the currently active line
   const activeIndex = useMemo(() => {
@@ -64,9 +66,18 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
           <span className="tracking-wide">Live Synced Lyrics</span>
         </div>
 
-        <div className="w-12 text-right text-[10px] text-neutral-500 truncate">
-          {lyricsData?.artist || ''}
-        </div>
+        <button
+          onClick={() => setShowRomanized((prev) => !prev)}
+          className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-all cursor-pointer border ${
+            showRomanized
+              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+              : 'text-neutral-400 border-white/10 hover:text-white'
+          }`}
+          title="Toggle Latin / Romanized text for non-Latin lyrics"
+        >
+          <Languages className="w-3 h-3" />
+          <span>Latin</span>
+        </button>
       </div>
 
       {/* Lyrics Content with smooth mask gradients */}
@@ -97,13 +108,15 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
           lyricsData.parsed_lines.map((line: LyricLine, index: number) => {
             const isActive = index === activeIndex;
             const isNear = Math.abs(index - activeIndex) <= 1;
+            const isNonLatin = hasNonLatinScript(line.text);
+            const romanized = showRomanized && isNonLatin ? transliterateText(line.text) : null;
 
             return (
               <div
                 key={`${line.time_ms}-${index}`}
                 ref={isActive ? activeLineRef : null}
                 onClick={() => onSeek(line.time_ms)}
-                className={`cursor-pointer transition-all duration-300 px-4 py-1.5 rounded-xl ${
+                className={`cursor-pointer transition-all duration-300 px-4 py-1.5 rounded-xl flex flex-col items-center justify-center ${
                   isActive
                     ? 'text-cyan-300 font-bold text-sm scale-105 bg-cyan-500/10 shadow-lg drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]'
                     : isNear
@@ -111,7 +124,16 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
                     : 'text-neutral-500 text-[11px] hover:text-neutral-300 opacity-45'
                 }`}
               >
-                {line.text}
+                <span>{line.text}</span>
+                {romanized && (
+                  <span
+                    className={`text-[10px] font-normal tracking-wide italic mt-0.5 transition-colors ${
+                      isActive ? 'text-sky-200/90' : 'text-neutral-400/80'
+                    }`}
+                  >
+                    {romanized}
+                  </span>
+                )}
               </div>
             );
           })
