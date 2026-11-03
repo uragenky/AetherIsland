@@ -103,12 +103,18 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
       className="flex items-center justify-center gap-2 cursor-pointer py-0.5 px-1 rounded-full select-none hover:opacity-90 transition-opacity"
       title="Aether Companion (Click to wink)"
       style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
         transform: `scale(${scale})`,
         filter: glowStyle,
       }}
     >
       {/* Left Eye */}
       <motion.div
+        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         animate={
           currentMood === 'groove'
             ? { y: [0, -2, 0], rotate: [-2, 2, -2] }
@@ -162,6 +168,7 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
 
       {/* Right Eye */}
       <motion.div
+        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         animate={
           currentMood === 'wink'
             ? { scaleY: 0.2 }
