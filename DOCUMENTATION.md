@@ -68,8 +68,11 @@
   - `skip_taskbar: true`
 - **Dynamic Hit-Testing & Sizing**:
   - In traditional transparent overlay windows, a full-width transparent window captures mouse clicks and blocks user interactions with browser tabs or application title bars.
-  - *Solution*: AetherIsland resizes the OS-level native window bounds dynamically to match the current visual size of the pill (e.g., `200x36` in compact mode, `380x160` in expanded mode).
+  - *Solution*: AetherIsland resizes the OS-level native window bounds dynamically to match the current visual size of the pill (e.g., `84x36` in idle compact capsule, `370x38` in media mode, `430x270` in expanded mode).
   - Area outside the pill remains nonexistent to the OS window manager, guaranteeing 100% click pass-through.
+- **Drag Threshold & Interaction Isolation**:
+  - Direct `onMouseDown` calls to `window.start_dragging()` cause the OS window manager to immediately take mouse capture, suppressing browser `click` and `dblclick` events.
+  - *Solution*: A 5-pixel displacement threshold is implemented. If movement is under 5px, mouse up and click/double-click events fire instantaneously (allowing winks on single-click and stats toggle on double-click). Only active drags past 5px initiate native window movement.
 - **DPI Scaling**:
   - Registered as `DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2`.
   - Coordinates are recalculated on monitor DPI changes:
@@ -86,8 +89,9 @@
   1. `IDLE`: Regular calm blinking. Random blink intervals scheduled between 3.5s and 6.0s.
   2. `LOOK_AT_MOUSE`: Tracks mouse proximity when cursor is within a 300px radius of the island. Pupils subtly shift their `cx`/`cy` offsets toward the cursor coordinates.
   3. `MUSIC_VIBE`: Triggered when GSMTC detects active media playback. Eyes morph into curved happy arcs (`^ ^`) and gently oscillate vertically in sync with tempo heuristics.
-  4. `SYSTEM_STRESS`: Triggered when CPU or RAM usage exceeds 85%. Eyes expand with contracted pupils or spin into spiral indicators (`@ @`).
+  4. `SYSTEM_STRESS`: Triggered when CPU, RAM, or GPU usage exceeds 80%. Eyes expand with contracted pupils or spin into spiral indicators (`@ @`).
   5. `SLEEP`: Triggered when the OS reports no user input for over 5 minutes via `GetLastInputInfo`. Eyes transition to resting horizontal slits (`- -`).
+  6. `WINK`: Triggered on single-click interaction without expanding or closing the island.
 
 ---
 
@@ -95,7 +99,9 @@
 - Utilizes the `sysinfo` Rust crate with minimal polling overhead:
   - `CpuRefreshKind::nothing().with_cpu_usage()`
   - `MemoryRefreshKind::nothing().with_ram()`
-- **Update Frequency**: 2000ms asynchronous background loop. Emits Tauri events only when significant delta is observed (`> 1%`).
+- **Native Battery Polling**: Integrates native Win32 `GetSystemPowerStatus` API from `kernel32.dll` to read battery level percentage and real-time AC charging status (`is_charging`).
+- **GPU Telemetry**: GPU utilization tracking integrated with hardware stress alerts and displayed via dedicated `<Gpu />` PCIe graphics card icon.
+- **Update Frequency**: 1500ms asynchronous background loop. Emits Tauri `system-metrics` events to the frontend.
 - **Telemetry Payload**:
   ```json
   {
@@ -103,10 +109,11 @@
     "ram_used_bytes": 8589934592,
     "ram_total_bytes": 17179869184,
     "ram_percentage": 50.0,
+    "gpu_usage": 18.0,
     "battery_percentage": 94,
     "is_charging": true,
-    "net_download_bps": 245000,
-    "net_upload_bps": 34000
+    "net_download_kbps": 245.0,
+    "net_upload_kbps": 34.0
   }
   ```
 
@@ -115,15 +122,19 @@
 ### 4.4. Global System Media Transport Controls (GSMTC) (`src-tauri/src/media.rs`)
 - Connects to Windows Runtime `Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager`.
 - Runs on a dedicated Multi-Threaded Apartment (MTA) worker thread to prevent thread affinity crashes (`RPC_E_WRONG_THREAD`).
+- **Looping-Free Clock Synchronization**:
+  - Solves the SMTC timeline zero-reset bug found in YouTube / Chromium / foobar2000 by establishing an authoritative internal monotonic clock.
+  - Native SMTC timeline position updates are filtered; only true user-seek jumps (`> 2500ms`) or track changes are synchronized.
+  - Rust background ticker increments position every 500ms and frontend runs a local 250ms sub-second micro-clock, ensuring smooth seekbar movement and uninterrupted karaoke scrolling.
 - **Capabilities**:
   - Event listener for `CurrentSessionChanged` and `MediaPropertiesChanged`.
   - Extracts title, artist, album name, and cover thumbnail stream.
-  - Cover art is processed into an in-memory buffer and sent to frontend as an object URL or base64 data URI.
-  - Playback control commands: `TryPlayAsync()`, `TryPauseAsync()`, `TrySkipNextAsync()`, `TrySkipPreviousAsync()`, `TryChangePlaybackPositionAsync()`.
+  - Controls: `TryPlayAsync()`, `TryPauseAsync()`, `TrySkipNextAsync()`, `TrySkipPreviousAsync()`, `TryChangePlaybackPositionAsync()`.
+  - Electric cyan/blue-themed transport controls (`SkipBack`, `Play`/`Pause`, `SkipForward`).
 
 ---
 
-### 4.5. Automatic Synced Lyrics Engine (`src-tauri/src/lyrics.rs`)
+### 4.5. Synced Lyrics Engine & Multi-Script Romanizer (`src-tauri/src/lyrics.rs` & `src/utils/transliterate.ts`)
 - **Query Sanitization Pipeline**:
   Raw media titles from YouTube and streaming platforms frequently contain metadata noise. Titles undergo regex sanitization:
   ```regex
@@ -132,13 +143,13 @@
 - **LRCLIB Integration**:
   - Endpoint: `https://lrclib.net/api/get?track_name={title}&artist_name={artist}&duration={duration}`
   - Response parses both plain lyrics (`lyrics`) and timestamped synced lyrics (`syncedLyrics`).
-- **Disk Caching**:
-  - Stored at `%LOCALAPPDATA%\AetherIsland\lyrics\{artist}_{title_hash}.json` to eliminate redundant network traffic.
-- **Client Synchronization Algorithm**:
-  - GSMTC updates position intermittently (often at 1–5 second intervals).
-  - The frontend runs a micro-clock using `performance.now()`:
-    $$\text{CurrentPlaybackMs} = \text{AnchorPositionMs} + (\text{TimeNow} - \text{AnchorTimestamp}) \times \text{PlaybackRate}$$
-  - The active line is matched with binary search over the `.lrc` timestamp array for sub-millisecond precision.
+  - Automatic duration fallback: If SMTC reports 0 duration (e.g. YouTube web), duration automatically derives from the final lyric timestamp + 15s.
+- **Multi-Script Transliteration Engine**:
+  - **Japanese**: Full Hepburn Romaji transliterator covering Hiragana, Katakana, and comprehensive Joyo Kanji lyric lexicon (~1,000+ compounds & characters).
+  - **Korean**: Algorithmic syllable decomposition based on Revised Romanization of Korean (RR), mapping Choseong, Jungseong, and Jongseong without dictionary bloat.
+  - **Cyrillic**: Transliteration for Russian and Ukrainian alphabets.
+  - **Arabic**: Phonetic Latin transliteration.
+  - Dual-line display in `SyncedLyricsView` with toggleable **Latin** button in header, plus transliterated compact marquee.
 
 ---
 
@@ -191,11 +202,11 @@ The island operates in three visual modes:
 
 ## 7. Implementation Roadmap
 
-- [ ] **Phase 1**: Project skeleton setup with Tauri v2, React, Tailwind CSS, and Framer Motion.
-- [ ] **Phase 2**: Native transparent, borderless window configuration with dynamic sizing and hit-test passthrough.
-- [ ] **Phase 3**: Eyes Companion SVG animation component with state transitions (idle, look-at, vibe, stress).
-- [ ] **Phase 4**: WinRT GSMTC media worker integration and bidirectional IPC commands.
-- [ ] **Phase 5**: LRCLIB lyrics client, title sanitizer, caching layer, and synchronized karaoke renderer.
-- [ ] **Phase 6**: `sysinfo` telemetry worker for CPU, RAM, battery, and network speeds.
+- [x] **Phase 1**: Project skeleton setup with Tauri v2, React, Tailwind CSS, and Framer Motion.
+- [x] **Phase 2**: Native transparent, borderless window configuration with dynamic sizing and hit-test passthrough.
+- [x] **Phase 3**: Eyes Companion SVG animation component with state transitions (idle, look-at, vibe, stress, wink).
+- [x] **Phase 4**: WinRT GSMTC media worker integration, bidirectional IPC commands, loop-free time tracking, and transport controls.
+- [x] **Phase 5**: LRCLIB lyrics client, title sanitizer, multi-script Romanization engine (Romaji, Hangul, Cyrillic, Arabic), and synchronized karaoke renderer.
+- [x] **Phase 6**: `sysinfo` + Win32 telemetry worker for CPU, RAM (`MemoryStick`), GPU (`Gpu`), native battery & charging, and network bandwidth.
 - [ ] **Phase 7**: Fullscreen detection and auto-hide/collapse mechanics.
 - [ ] **Phase 8**: Optimization pass, memory profiling, and packaging.
