@@ -6,7 +6,7 @@ use lyrics::{LyricsData, LyricsState};
 use media::{MediaManager, MediaSessionInfo};
 use monitor::{MonitorState, SystemMetrics};
 use std::sync::Arc;
-use tauri::{Manager, State, Window};
+use tauri::{Emitter, Manager, State, Window};
 
 struct AppState {
     monitor: Arc<MonitorState>,
@@ -55,19 +55,48 @@ async fn get_lyrics(
 }
 
 #[tauri::command]
+fn start_window_drag(window: Window) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_is_notch(window: Window) -> Result<bool, String> {
+    if let Ok(pos) = window.outer_position() {
+        Ok(pos.y <= 24)
+    } else {
+        Ok(true)
+    }
+}
+
+#[tauri::command]
 fn set_island_window_size(
     window: Window,
     width: f64,
     height: f64,
     y_offset: Option<f64>,
 ) -> Result<(), String> {
-    if let Ok(Some(monitor)) = window.current_monitor() {
-        let scale_factor = monitor.scale_factor();
-        let screen_width = monitor.size().width as f64 / scale_factor;
-        let new_x = ((screen_width - width) / 2.0).max(0.0);
-        let new_y = y_offset.unwrap_or(0.0);
-        let _ = window.set_position(tauri::LogicalPosition::new(new_x, new_y));
+    // If window is currently at or near the top bezel, keep it snapped to top
+    let current_is_notch = window
+        .outer_position()
+        .map(|pos| pos.y <= 24)
+        .unwrap_or(true);
+
+    if current_is_notch {
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let scale_factor = monitor.scale_factor();
+            let screen_width = monitor.size().width as f64 / scale_factor;
+            let new_x = ((screen_width - width) / 2.0).max(0.0);
+            let _ = window.set_position(tauri::LogicalPosition::new(new_x, 0.0));
+        }
+    } else if let Some(y) = y_offset {
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let scale_factor = monitor.scale_factor();
+            let screen_width = monitor.size().width as f64 / scale_factor;
+            let new_x = ((screen_width - width) / 2.0).max(0.0);
+            let _ = window.set_position(tauri::LogicalPosition::new(new_x, y));
+        }
     }
+
     let size = tauri::LogicalSize::new(width, height);
     window
         .set_size(size)
@@ -90,10 +119,16 @@ pub fn run() {
     tauri::Builder::default()
         .manage(state)
         .plugin(tauri_plugin_opener::init())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Moved(pos) = event {
+                let is_notch = pos.y <= 24;
+                let _ = window.emit("edge-snap-status", is_notch);
+            }
+        })
         .setup(move |app| {
             let handle = app.handle().clone();
 
-            // Position initial window at top-center
+            // Position initial window at top-center as a notch
             if let Some(window) = app.get_webview_window("main") {
                 let initial_w = 320.0;
                 let initial_h = 44.0;
@@ -119,6 +154,8 @@ pub fn run() {
             media_seek,
             get_lyrics,
             set_island_window_size,
+            start_window_drag,
+            get_is_notch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running AetherIsland application");

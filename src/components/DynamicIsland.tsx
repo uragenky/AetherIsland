@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { EyesCompanion } from './EyesCompanion';
 import { MediaController } from './MediaController';
 import { SyncedLyricsView } from './SyncedLyricsView';
@@ -11,7 +12,7 @@ import {
   MediaSessionInfo,
   LyricsData,
 } from '../types';
-import { Activity, Music2, Disc, GripHorizontal } from 'lucide-react';
+import { Activity, Music2, Disc, Maximize2, Minimize2 } from 'lucide-react';
 
 interface DynamicIslandProps {
   metrics: SystemMetrics;
@@ -36,15 +37,31 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 }) => {
   const [mode, setMode] = useState<IslandMode>('compact');
   const [activeTab, setActiveTab] = useState<'media' | 'system'>('media');
+  const [isNotch, setIsNotch] = useState(true);
+
+  // Listen to real-time window movement & edge snap state from Tauri backend
+  useEffect(() => {
+    invoke<boolean>('get_is_notch')
+      .then((snapped) => setIsNotch(snapped))
+      .catch(() => setIsNotch(true));
+
+    const unlistenSnap = listen<boolean>('edge-snap-status', (event) => {
+      setIsNotch(event.payload);
+    });
+
+    return () => {
+      unlistenSnap.then((f) => f());
+    };
+  }, []);
 
   // Dynamically resize and re-center OS native window when mode changes
   useEffect(() => {
     const resizeWindow = async () => {
       try {
         if (mode === 'compact') {
-          await invoke('set_island_window_size', { width: 320.0, height: 44.0, yOffset: 4.0 });
+          await invoke('set_island_window_size', { width: 330.0, height: 44.0, yOffset: 0.0 });
         } else {
-          await invoke('set_island_window_size', { width: 440.0, height: 280.0, yOffset: 4.0 });
+          await invoke('set_island_window_size', { width: 440.0, height: 285.0, yOffset: 0.0 });
         }
       } catch {
         // Ignored in non-windowed environments
@@ -58,6 +75,12 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       setMode('expanded');
     } else {
       setMode('compact');
+    }
+  };
+
+  const handleStartDrag = (e: React.MouseEvent) => {
+    if (e.button === 0) {
+      invoke('start_window_drag').catch(() => {});
     }
   };
 
@@ -84,26 +107,52 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         layout
         transition={{
           type: 'spring',
-          stiffness: 450,
-          damping: 32,
+          stiffness: 420,
+          damping: 30,
           mass: 0.8,
         }}
-        onClick={(e) => {
-          if (mode === 'compact') {
-            e.stopPropagation();
-            toggleExpand();
-          }
-        }}
+        onDoubleClick={toggleExpand}
         style={{
           backgroundColor: '#000000',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.14)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.14)',
+          borderTop: isNotch ? 'none' : '1px solid rgba(255, 255, 255, 0.14)',
+          borderTopLeftRadius: isNotch ? '0px' : mode === 'compact' ? '9999px' : '24px',
+          borderTopRightRadius: isNotch ? '0px' : mode === 'compact' ? '9999px' : '24px',
+          borderBottomLeftRadius: mode === 'compact' ? '20px' : '26px',
+          borderBottomRightRadius: mode === 'compact' ? '20px' : '26px',
         }}
-        className={`bg-black border border-white/12 overflow-hidden transition-all duration-200 ${
+        className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
-            ? 'rounded-full px-3 py-1 flex items-center justify-between w-[310px] h-[38px] hover:border-cyan-500/30 cursor-pointer'
-            : 'rounded-3xl p-4 w-[430px] min-h-[265px] flex flex-col justify-between cursor-default'
+            ? 'px-3 py-1 flex items-center justify-between w-[320px] h-[38px]'
+            : 'p-4 w-[430px] min-h-[270px] flex flex-col justify-between'
         }`}
       >
+        {/* Organic Notch Ears (MacBook/iPhone Bezel Flares) when snapped to top */}
+        {isNotch && (
+          <>
+            {/* Left Ear Flare */}
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              className="absolute -left-[10px] top-0 pointer-events-none fill-black"
+            >
+              <path d="M 10 0 Q 10 10 0 10 L 10 10 Z" />
+            </svg>
+            {/* Right Ear Flare */}
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              className="absolute -right-[10px] top-0 pointer-events-none fill-black"
+            >
+              <path d="M 0 0 Q 0 10 10 10 L 0 10 Z" />
+            </svg>
+          </>
+        )}
+
         {/* COMPACT MODE */}
         {mode === 'compact' && (
           <div
@@ -112,8 +161,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           >
             {/* Eyes Companion (Left) */}
             <div
-              className="flex items-center gap-1.5 flex-shrink-0"
+              className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
               style={{ display: 'inline-flex', alignItems: 'center' }}
+              onClick={toggleExpand}
+              title="Click to expand island"
             >
               <EyesCompanion
                 mood="idle"
@@ -123,21 +174,20 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               />
             </div>
 
-            {/* Middle Content (Draggable & Marquee) */}
+            {/* Middle Content (Draggable Area) */}
             <div
-              data-tauri-drag-region
+              onMouseDown={handleStartDrag}
               className="flex-1 min-w-0 flex items-center justify-center px-1 overflow-hidden cursor-grab active:cursor-grabbing"
-              title="Drag to reposition, Click to expand"
+              title="Drag to reposition (Move near top bezel to snap into Notch)"
             >
               {media.is_playing ? (
-                <div className="flex items-center gap-1.5 max-w-full text-xs truncate">
+                <div className="flex items-center gap-1.5 max-w-full text-xs truncate pointer-events-none">
                   <span className="text-cyan-300 font-medium truncate text-[11px]">
                     {compactLyricText ? `♪ ${compactLyricText}` : `${media.title} — ${media.artist}`}
                   </span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-[11px] text-neutral-400 font-mono">
-                  <GripHorizontal className="w-3.5 h-3.5 text-neutral-600" />
+                <div className="flex items-center gap-2 text-[11px] text-neutral-400 font-mono pointer-events-none">
                   <span>CPU {metrics.cpu_usage.toFixed(0)}%</span>
                   <span>•</span>
                   <span>RAM {metrics.ram_percentage.toFixed(0)}%</span>
@@ -145,10 +195,14 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               )}
             </div>
 
-            {/* Right Status (Audio Wave or System indicator) */}
+            {/* Right Status & Expand Button */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {media.is_playing ? (
-                <div className="flex items-center gap-0.5 h-3 px-1">
+                <div
+                  onClick={toggleExpand}
+                  className="flex items-center gap-0.5 h-3 px-1 cursor-pointer"
+                  title="Expand island"
+                >
                   <motion.div
                     animate={{ height: ['4px', '13px', '6px'] }}
                     transition={{ repeat: Infinity, duration: 0.55 }}
@@ -167,15 +221,33 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 </div>
               ) : (
                 <div
-                  className={`w-2 h-2 rounded-full ${
-                    metrics.cpu_usage > 80
-                      ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.7)]'
-                      : metrics.cpu_usage > 50
-                      ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)]'
-                      : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]'
-                  }`}
-                />
+                  onClick={toggleExpand}
+                  className="cursor-pointer p-0.5"
+                  title="Expand island"
+                >
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      metrics.cpu_usage > 80
+                        ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.7)]'
+                        : metrics.cpu_usage > 50
+                        ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)]'
+                        : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]'
+                    }`}
+                  />
+                </div>
               )}
+
+              {/* Expand Toggle Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpand();
+                }}
+                className="text-neutral-500 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
+                title="Expand Island"
+              >
+                <Maximize2 className="w-3 h-3" />
+              </button>
             </div>
           </div>
         )}
@@ -192,12 +264,13 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               className="flex flex-col w-full h-full"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header: Eyes Companion & Mode Switcher */}
+              {/* Header: Eyes Companion & Mode Switcher (Draggable) */}
               <div
-                data-tauri-drag-region
+                onMouseDown={handleStartDrag}
                 className="flex items-center justify-between pb-2.5 border-b border-white/10 mb-2 cursor-grab active:cursor-grabbing"
+                title="Drag header to move"
               >
-                <div className="flex items-center gap-2 select-none">
+                <div className="flex items-center gap-2 select-none pointer-events-none">
                   <EyesCompanion
                     mood="idle"
                     isMusicPlaying={media.is_playing}
@@ -209,12 +282,15 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                       AetherIsland
                     </span>
                     <span className="text-[10px] text-neutral-400 -mt-0.5">
-                      Windows Companion
+                      {isNotch ? 'Snapped Notch' : 'Floating Pill'}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 bg-white/5 rounded-full p-0.5 border border-white/5">
+                <div
+                  className="flex items-center gap-1 bg-white/5 rounded-full p-0.5 border border-white/5"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   <button
                     onClick={() => {
                       setMode('expanded');
@@ -246,11 +322,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   </button>
 
                   <button
-                    onClick={() => setMode('compact')}
+                    onClick={toggleExpand}
                     className="p-1 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer ml-0.5"
                     title="Minimize Island"
                   >
-                    <div className="w-3 h-3 flex items-center justify-center font-bold text-[11px]">✕</div>
+                    <Minimize2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
