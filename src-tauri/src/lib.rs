@@ -62,7 +62,12 @@ fn start_window_drag(window: Window) -> Result<(), String> {
 #[tauri::command]
 fn get_is_notch(window: Window) -> Result<bool, String> {
     if let Ok(pos) = window.outer_position() {
-        Ok(pos.y <= 24)
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let scale_factor = monitor.scale_factor();
+            let logical_y = pos.y as f64 / scale_factor;
+            return Ok(logical_y <= 65.0);
+        }
+        Ok(pos.y <= 65)
     } else {
         Ok(true)
     }
@@ -75,24 +80,25 @@ fn set_island_window_size(
     height: f64,
     y_offset: Option<f64>,
 ) -> Result<(), String> {
-    // If window is currently at or near the top bezel, keep it snapped to top
+    let scale_factor = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0);
+
     let current_is_notch = window
         .outer_position()
-        .map(|pos| pos.y <= 24)
+        .map(|pos| (pos.y as f64 / scale_factor) <= 65.0)
         .unwrap_or(true);
 
-    if current_is_notch {
-        if let Ok(Some(monitor)) = window.current_monitor() {
-            let scale_factor = monitor.scale_factor();
-            let screen_width = monitor.size().width as f64 / scale_factor;
-            let new_x = ((screen_width - width) / 2.0).max(0.0);
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let screen_width = monitor.size().width as f64 / scale_factor;
+        let new_x = ((screen_width - width) / 2.0).max(0.0);
+
+        if current_is_notch {
             let _ = window.set_position(tauri::LogicalPosition::new(new_x, 0.0));
-        }
-    } else if let Some(y) = y_offset {
-        if let Ok(Some(monitor)) = window.current_monitor() {
-            let scale_factor = monitor.scale_factor();
-            let screen_width = monitor.size().width as f64 / scale_factor;
-            let new_x = ((screen_width - width) / 2.0).max(0.0);
+        } else if let Some(y) = y_offset {
             let _ = window.set_position(tauri::LogicalPosition::new(new_x, y));
         }
     }
@@ -121,8 +127,28 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Moved(pos) = event {
-                let is_notch = pos.y <= 24;
-                let _ = window.emit("edge-snap-status", is_notch);
+                let (logical_y, scale_factor, screen_width) =
+                    if let Ok(Some(monitor)) = window.current_monitor() {
+                        let sf = monitor.scale_factor();
+                        let sw = monitor.size().width as f64 / sf;
+                        (pos.y as f64 / sf, sf, sw)
+                    } else {
+                        (pos.y as f64, 1.0, 1920.0)
+                    };
+
+                if logical_y <= 65.0 {
+                    // Magnetic snap: pull to y=0 and re-center when near top edge
+                    if pos.y > 0 {
+                        if let Ok(win_size) = window.inner_size() {
+                            let win_width = win_size.width as f64 / scale_factor;
+                            let center_x = ((screen_width - win_width) / 2.0).max(0.0);
+                            let _ = window.set_position(tauri::LogicalPosition::new(center_x, 0.0));
+                        }
+                    }
+                    let _ = window.emit("edge-snap-status", true);
+                } else {
+                    let _ = window.emit("edge-snap-status", false);
+                }
             }
         })
         .setup(move |app| {

@@ -114,14 +114,28 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         onDoubleClick={toggleExpand}
         style={{
           backgroundColor: '#000000',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
-          borderLeft: '1px solid rgba(255, 255, 255, 0.14)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.14)',
-          borderTop: isNotch ? 'none' : '1px solid rgba(255, 255, 255, 0.14)',
+          border: isNotch
+            ? 'none'
+            : '1px solid rgba(255, 255, 255, 0.15)',
+          borderBottom: isNotch ? '1px solid rgba(255, 255, 255, 0.15)' : undefined,
+          borderLeft: isNotch ? '1px solid rgba(255, 255, 255, 0.15)' : undefined,
+          borderRight: isNotch ? '1px solid rgba(255, 255, 255, 0.15)' : undefined,
           borderTopLeftRadius: isNotch ? '0px' : mode === 'compact' ? '9999px' : '24px',
           borderTopRightRadius: isNotch ? '0px' : mode === 'compact' ? '9999px' : '24px',
-          borderBottomLeftRadius: mode === 'compact' ? '20px' : '26px',
-          borderBottomRightRadius: mode === 'compact' ? '20px' : '26px',
+          borderBottomLeftRadius: isNotch
+            ? mode === 'compact'
+              ? '20px'
+              : '26px'
+            : mode === 'compact'
+            ? '9999px'
+            : '24px',
+          borderBottomRightRadius: isNotch
+            ? mode === 'compact'
+              ? '20px'
+              : '26px'
+            : mode === 'compact'
+            ? '9999px'
+            : '24px',
         }}
         className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
