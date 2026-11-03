@@ -17,14 +17,14 @@ pub struct MediaSessionInfo {
 impl Default for MediaSessionInfo {
     fn default() -> Self {
         Self {
-            has_media: true,
-            title: "Cruel Summer".to_string(),
-            artist: "Taylor Swift".to_string(),
-            album: "Lover".to_string(),
-            cover_url: Some("https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80".to_string()),
-            is_playing: true,
-            position_ms: 45000,
-            duration_ms: 178000,
+            has_media: false,
+            title: "".to_string(),
+            artist: "".to_string(),
+            album: "".to_string(),
+            cover_url: None,
+            is_playing: false,
+            position_ms: 0,
+            duration_ms: 0,
         }
     }
 }
@@ -52,6 +52,15 @@ impl MediaManager {
 
         let mut curr = self.current.lock().unwrap();
         curr.is_playing = !curr.is_playing;
+        if curr.is_playing && curr.title.is_empty() {
+            curr.has_media = true;
+            curr.title = "Cruel Summer".to_string();
+            curr.artist = "Taylor Swift".to_string();
+            curr.album = "Lover".to_string();
+            curr.cover_url = Some("https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80".to_string());
+            curr.position_ms = 45000;
+            curr.duration_ms = 178000;
+        }
         curr.clone()
     }
 

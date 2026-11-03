@@ -17,14 +17,14 @@ export function App() {
   });
 
   const [media, setMedia] = useState<MediaSessionInfo>({
-    has_media: true,
-    title: 'Cruel Summer',
-    artist: 'Taylor Swift',
-    album: 'Lover',
-    cover_url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80',
-    is_playing: true,
-    position_ms: 45000,
-    duration_ms: 178000,
+    has_media: false,
+    title: '',
+    artist: '',
+    album: '',
+    cover_url: null,
+    is_playing: false,
+    position_ms: 0,
+    duration_ms: 0,
   });
 
   const [lyricsData, setLyricsData] = useState<LyricsData | null>(null);

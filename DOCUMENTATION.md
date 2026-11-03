@@ -146,23 +146,22 @@
 
 The island operates in three visual modes:
 
-1. **Compact Pill (Default)**:
-   - Size: `180px x 34px` (Border-radius: `9999px`)
-   - Left: Eyes companion emoticon.
-   - Right: Subtle mini audio visualizer or CPU pulse bar.
+1. **Compact Idle Capsule (Default when Idle)**:
+   - Size: `84px x 36px` (Native window: `92px x 42px`, Border-radius: `9999px` / notched `20px`)
+   - Centered: Expressive SVG Eyes Companion emoticon only. Zero distraction or visual clutter.
+   - Interactions: Click to wink, drag to reposition, double-click to expand to full dashboard.
 
-2. **Mini Media / Track Toast (On Track Change)**:
-   - Size: `320px x 40px`
-   - Left: Eye companion with groove animation.
-   - Middle: Single-line scrolling marquee of current track & artist.
-   - Right: Compact active lyric line preview.
+2. **Compact Media Pill (Active Playback)**:
+   - Size: `320px x 38px` (Native window: `330px x 44px`)
+   - Left: Eyes companion with groove/music animation.
+   - Middle: Single-line scrolling marquee of current track & artist or active lyric snippet.
+   - Right: Real-time animated audio visualizer bars and quick expand toggle.
 
-3. **Expanded Island (Hover or Click)**:
-   - Size: `420px x 180px` (Border-radius: `24px`)
-   - **Header**: Eyes companion with mood status + CPU/RAM micro badge.
-   - **Body Left**: Album art thumbnail (`64x64px`) + Playback controls (Prev, Play/Pause, Next, Seekbar).
-   - **Body Right**: 3-line synced lyrics view (previous line, highlighted active line, upcoming line).
-   - **Footer**: Battery percentage, hardware thermals, network bandwidth status.
+3. **Expanded Island (Double-Click or Expand Button)**:
+   - Size: `430px x 270px` (Native window: `440px x 285px`, Border-radius: `24px` / notched `26px`)
+   - **Header**: Eyes companion with mood status + Mode/Tab switchers (Media / System) + minimize button.
+   - **Body Left/Center**: Full media controls, album artwork, and synced lyrics view, or comprehensive system resource metrics dashboard.
+   - **Footer/Mini-bar**: Quick media toggle or detailed hardware telemetry.
 
 ---
 
@@ -170,7 +169,7 @@ The island operates in three visual modes:
 
 | Scenario | Defensive Strategy |
 | :--- | :--- |
-| **No active media playing** | Gracefully collapse media module. Pill displays system vitals and playful eye behaviors. |
+| **No active media playing** | Automatically collapses into the minimalist idle emoticon capsule (84px), displaying only the playful eye companion. |
 | **No lyrics found on LRCLIB** | Gracefully display `"No synced lyrics available"` and display album/artist metadata without UI jitter. |
 | **High network latency** | Non-blocking asynchronous reqwest calls with a 3-second timeout. Shows skeleton loader in expanded mode. |
 | **Multi-monitor display disconnect** | Window registers `WM_DISPLAYCHANGE` and `WM_DPICHANGED` messages to recalculate center offset on the primary display. |

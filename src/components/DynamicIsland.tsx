@@ -54,12 +54,18 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     };
   }, []);
 
+  const isMediaActive = Boolean(media.has_media && media.is_playing);
+
   // Dynamically resize and re-center OS native window when mode changes
   useEffect(() => {
     const resizeWindow = async () => {
       try {
         if (mode === 'compact') {
-          await invoke('set_island_window_size', { width: 330.0, height: 44.0, yOffset: 0.0 });
+          if (isMediaActive) {
+            await invoke('set_island_window_size', { width: 330.0, height: 44.0, yOffset: 0.0 });
+          } else {
+            await invoke('set_island_window_size', { width: 92.0, height: 42.0, yOffset: 0.0 });
+          }
         } else {
           await invoke('set_island_window_size', { width: 440.0, height: 285.0, yOffset: 0.0 });
         }
@@ -68,7 +74,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       }
     };
     resizeWindow();
-  }, [mode]);
+  }, [mode, isMediaActive]);
 
   const toggleExpand = () => {
     if (mode === 'compact') {
@@ -139,55 +145,49 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         }}
         className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
-            ? 'px-3 py-1 flex items-center justify-between w-[320px] h-[38px]'
+            ? isMediaActive
+              ? 'px-3 py-1 flex items-center justify-between w-[320px] h-[38px]'
+              : 'px-2 py-1 flex items-center justify-center w-[84px] h-[36px]'
             : 'p-4 w-[430px] min-h-[270px] flex flex-col justify-between'
         }`}
       >
         {/* COMPACT MODE */}
         {mode === 'compact' && (
-          <div
-            className="flex items-center justify-between w-full h-full gap-2"
-            style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
-          >
-            {/* Eyes Companion (Left) */}
+          isMediaActive ? (
             <div
-              className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
-              style={{ display: 'inline-flex', alignItems: 'center' }}
-              onClick={toggleExpand}
-              title="Click to expand island"
+              className="flex items-center justify-between w-full h-full gap-2"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
             >
-              <EyesCompanion
-                mood="idle"
-                isMusicPlaying={media.is_playing}
-                cpuUsage={metrics.cpu_usage}
-                size="small"
-              />
-            </div>
+              {/* Eyes Companion (Left) */}
+              <div
+                className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+                style={{ display: 'inline-flex', alignItems: 'center' }}
+                onClick={toggleExpand}
+                title="Click to expand island"
+              >
+                <EyesCompanion
+                  mood="idle"
+                  isMusicPlaying={media.is_playing}
+                  cpuUsage={metrics.cpu_usage}
+                  size="small"
+                />
+              </div>
 
-            {/* Middle Content (Draggable Area) */}
-            <div
-              onMouseDown={handleStartDrag}
-              className="flex-1 min-w-0 flex items-center justify-center px-1 overflow-hidden cursor-grab active:cursor-grabbing"
-              title="Drag to reposition (Move near top bezel to snap into Notch)"
-            >
-              {media.is_playing ? (
+              {/* Middle Content (Draggable Area) */}
+              <div
+                onMouseDown={handleStartDrag}
+                className="flex-1 min-w-0 flex items-center justify-center px-1 overflow-hidden cursor-grab active:cursor-grabbing"
+                title="Drag to reposition (Move near top bezel to snap into Notch)"
+              >
                 <div className="flex items-center gap-1.5 max-w-full text-xs truncate pointer-events-none">
                   <span className="text-cyan-300 font-medium truncate text-[11px]">
                     {compactLyricText ? `♪ ${compactLyricText}` : `${media.title} — ${media.artist}`}
                   </span>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 text-[11px] text-neutral-400 font-mono pointer-events-none">
-                  <span>CPU {metrics.cpu_usage.toFixed(0)}%</span>
-                  <span>•</span>
-                  <span>RAM {metrics.ram_percentage.toFixed(0)}%</span>
-                </div>
-              )}
-            </div>
+              </div>
 
-            {/* Right Status & Expand Button */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {media.is_playing ? (
+              {/* Right Status & Expand Button */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <div
                   onClick={toggleExpand}
                   className="flex items-center gap-0.5 h-3 px-1 cursor-pointer"
@@ -209,37 +209,35 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                     className="w-0.5 bg-blue-400 rounded-full"
                   />
                 </div>
-              ) : (
-                <div
-                  onClick={toggleExpand}
-                  className="cursor-pointer p-0.5"
-                  title="Expand island"
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      metrics.cpu_usage > 80
-                        ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.7)]'
-                        : metrics.cpu_usage > 50
-                        ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)]'
-                        : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]'
-                    }`}
-                  />
-                </div>
-              )}
 
-              {/* Expand Toggle Button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleExpand();
-                }}
-                className="text-neutral-500 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
-                title="Expand Island"
-              >
-                <Maximize2 className="w-3 h-3" />
-              </button>
+                {/* Expand Toggle Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleExpand();
+                  }}
+                  className="text-neutral-500 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
+                  title="Expand Island"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* IDLE MODE: ONLY EYES COMPANION */
+            <div
+              onMouseDown={handleStartDrag}
+              className="flex items-center justify-center w-full h-full cursor-grab active:cursor-grabbing"
+              title="Aether Island (Click to wink, double-click to expand, drag to move)"
+            >
+              <EyesCompanion
+                mood="idle"
+                isMusicPlaying={false}
+                cpuUsage={metrics.cpu_usage}
+                size="small"
+              />
+            </div>
+          )
         )}
 
         {/* EXPANDED / LYRICS MODE */}

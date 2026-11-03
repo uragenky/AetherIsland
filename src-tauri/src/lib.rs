@@ -89,6 +89,7 @@ fn set_island_window_size(
         .unwrap_or(1.0);
 
     let current_pos = window.outer_position().unwrap_or(tauri::PhysicalPosition::new(0, 0));
+    let logical_x = current_pos.x as f64 / scale_factor;
     let logical_y = current_pos.y as f64 / scale_factor;
     let is_notch = logical_y <= 28.0;
 
@@ -98,6 +99,11 @@ fn set_island_window_size(
             let new_x = ((screen_width - width) / 2.0).max(0.0);
             let _ = window.set_position(tauri::LogicalPosition::new(new_x, 0.0));
         }
+    } else if let Ok(current_size) = window.outer_size() {
+        let old_width = current_size.width as f64 / scale_factor;
+        let delta_x = (old_width - width) / 2.0;
+        let new_x = logical_x + delta_x;
+        let _ = window.set_position(tauri::LogicalPosition::new(new_x, logical_y));
     }
 
     let size = tauri::LogicalSize::new(width, height);
