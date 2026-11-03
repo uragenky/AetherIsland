@@ -40,20 +40,20 @@ export const MediaController: React.FC<MediaControllerProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-2.5 w-full text-white">
+    <div className="flex flex-col gap-3 w-full text-white pt-1">
       {/* Top Info Row */}
       <div className="flex items-center gap-3">
         {/* Cover Art */}
-        <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-neutral-800 flex-shrink-0 shadow-md border border-white/10">
+        <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-neutral-900 flex-shrink-0 shadow-lg border border-white/10 ring-1 ring-white/5">
           {media.cover_url ? (
             <img
               src={media.cover_url}
               alt={media.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-neutral-400">
-              <Music className="w-6 h-6 animate-pulse" />
+            <div className="w-full h-full flex items-center justify-center text-neutral-500 bg-neutral-800/80">
+              <Music className="w-5 h-5 animate-pulse text-cyan-400" />
             </div>
           )}
         </div>
@@ -61,10 +61,10 @@ export const MediaController: React.FC<MediaControllerProps> = ({
         {/* Title and Artist */}
         <div className="flex flex-col min-w-0 flex-1">
           <div className="font-semibold text-sm truncate text-white tracking-wide" title={media.title}>
-            {media.title || 'No Media Playing'}
+            {media.title || 'No Media Active'}
           </div>
-          <div className="text-xs text-neutral-400 truncate" title={media.artist}>
-            {media.artist || 'Waiting for audio...'}
+          <div className="text-xs text-neutral-400 truncate mt-0.5" title={media.artist}>
+            {media.artist || 'Waiting for system audio...'}
           </div>
         </div>
 
@@ -72,36 +72,37 @@ export const MediaController: React.FC<MediaControllerProps> = ({
         {showLyricsButton && (
           <button
             onClick={onToggleLyrics}
-            className="p-1.5 rounded-full hover:bg-white/10 text-neutral-300 hover:text-white transition-colors"
-            title="Toggle Synced Lyrics"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-400 border border-cyan-500/20 text-xs transition-all active:scale-95 cursor-pointer"
+            title="Open Live Lyrics"
           >
-            <Mic2 className="w-4 h-4" />
+            <Mic2 className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-medium">Lyrics</span>
           </button>
         )}
       </div>
 
       {/* Progress Bar & Seek */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5 px-0.5">
         <div
           onClick={handleSliderClick}
-          className="w-full h-1.5 bg-neutral-700/60 rounded-full cursor-pointer overflow-hidden group relative hover:h-2 transition-all"
+          className="w-full h-1.5 bg-neutral-800 rounded-full cursor-pointer relative group overflow-hidden"
         >
           <div
-            className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full relative"
+            className="h-full bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 rounded-full relative transition-all"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <div className="flex justify-between text-[10px] text-neutral-400 px-0.5">
+        <div className="flex justify-between text-[10px] text-neutral-400 font-mono px-0.5">
           <span>{formatTime(media.position_ms)}</span>
           <span>{formatTime(media.duration_ms)}</span>
         </div>
       </div>
 
       {/* Control Buttons */}
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-5 pt-0.5">
         <button
           onClick={onPrev}
-          className="p-1.5 rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+          className="p-2 rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-all active:scale-90 cursor-pointer"
           title="Previous Track"
         >
           <SkipBack className="w-4 h-4 fill-current" />
@@ -109,7 +110,7 @@ export const MediaController: React.FC<MediaControllerProps> = ({
 
         <button
           onClick={onPlayPause}
-          className="p-2.5 rounded-full bg-white text-black hover:bg-neutral-200 shadow-md transition-all active:scale-95"
+          className="p-3 rounded-full bg-white text-black hover:bg-neutral-200 shadow-xl transition-all active:scale-90 cursor-pointer"
           title={media.is_playing ? 'Pause' : 'Play'}
         >
           {media.is_playing ? (
@@ -121,7 +122,7 @@ export const MediaController: React.FC<MediaControllerProps> = ({
 
         <button
           onClick={onNext}
-          className="p-1.5 rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+          className="p-2 rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-all active:scale-90 cursor-pointer"
           title="Next Track"
         >
           <SkipForward className="w-4 h-4 fill-current" />

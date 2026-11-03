@@ -14,8 +14,8 @@
       {
         "label": "main",
         "title": "AetherIsland",
-        "width": 520,
-        "height": 280,
+        "width": 320,
+        "height": 44,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,

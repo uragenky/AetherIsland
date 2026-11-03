@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { LyricLine, LyricsData } from '../types';
-import { Sparkles, ArrowLeft } from 'lucide-react';
+import { Sparkles, ArrowLeft, Disc3 } from 'lucide-react';
 
 interface SyncedLyricsViewProps {
   lyricsData: LyricsData | null;
@@ -48,36 +48,50 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   }, [activeIndex]);
 
   return (
-    <div className="flex flex-col w-full h-[180px] text-white">
+    <div className="flex flex-col w-full h-[195px] text-white">
       {/* Header bar */}
-      <div className="flex items-center justify-between pb-1.5 border-b border-white/10 mb-1">
+      <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-1">
         <button
           onClick={onBack}
-          className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white px-2 py-0.5 rounded-full hover:bg-white/10 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back</span>
         </button>
-        <div className="flex items-center gap-1 text-[11px] text-cyan-400 font-medium">
-          <Sparkles className="w-3 h-3" />
-          <span>Live Synced Lyrics</span>
+
+        <div className="flex items-center gap-1.5 text-xs font-medium text-cyan-400">
+          <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+          <span className="tracking-wide">Live Synced Lyrics</span>
+        </div>
+
+        <div className="w-12 text-right text-[10px] text-neutral-500 truncate">
+          {lyricsData?.artist || ''}
         </div>
       </div>
 
-      {/* Lyrics Content */}
+      {/* Lyrics Content with smooth mask gradients */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden space-y-2.5 py-3 pr-1 text-center"
+        className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 py-4 text-center select-none"
+        style={{
+          maskImage:
+            'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)',
+          WebkitMaskImage:
+            'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)',
+        }}
       >
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full text-neutral-400 text-xs gap-1.5">
-            <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-            <span>Finding lyrics...</span>
+          <div className="flex flex-col items-center justify-center h-full text-neutral-400 text-xs gap-2">
+            <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            <span className="text-neutral-400 font-medium">Fetching real-time lyrics...</span>
           </div>
         ) : !lyricsData || lyricsData.parsed_lines.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-neutral-400 text-xs px-4">
-            <p className="font-medium text-neutral-300">No synced lyrics found</p>
-            <p className="text-[11px] text-neutral-500 mt-0.5">Playing: {lyricsData?.title || 'Unknown'}</p>
+          <div className="flex flex-col items-center justify-center h-full text-neutral-400 text-xs px-4 gap-1">
+            <Disc3 className="w-6 h-6 text-neutral-600 animate-spin" style={{ animationDuration: '6s' }} />
+            <p className="font-semibold text-neutral-300 mt-1">No synchronized lyrics available</p>
+            <p className="text-[11px] text-neutral-500">
+              {lyricsData?.title ? `${lyricsData.title} • ${lyricsData.artist}` : 'Enjoy the music'}
+            </p>
           </div>
         ) : (
           lyricsData.parsed_lines.map((line: LyricLine, index: number) => {
@@ -89,12 +103,12 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
                 key={`${line.time_ms}-${index}`}
                 ref={isActive ? activeLineRef : null}
                 onClick={() => onSeek(line.time_ms)}
-                className={`cursor-pointer transition-all duration-300 px-3 py-1 rounded-lg ${
+                className={`cursor-pointer transition-all duration-300 px-4 py-1.5 rounded-xl ${
                   isActive
-                    ? 'text-white font-bold text-sm scale-105 bg-white/10 shadow-sm text-cyan-300'
+                    ? 'text-cyan-300 font-bold text-sm scale-105 bg-cyan-500/10 shadow-lg drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]'
                     : isNear
-                    ? 'text-neutral-300 text-xs hover:text-white'
-                    : 'text-neutral-500 text-[11px] hover:text-neutral-300 opacity-60'
+                    ? 'text-neutral-200 text-xs hover:text-white opacity-85'
+                    : 'text-neutral-500 text-[11px] hover:text-neutral-300 opacity-45'
                 }`}
               >
                 {line.text}

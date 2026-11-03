@@ -6,7 +6,7 @@ use lyrics::{LyricsData, LyricsState};
 use media::{MediaManager, MediaSessionInfo};
 use monitor::{MonitorState, SystemMetrics};
 use std::sync::Arc;
-use tauri::{State, Window};
+use tauri::{Manager, State, Window};
 
 struct AppState {
     monitor: Arc<MonitorState>,
@@ -55,7 +55,19 @@ async fn get_lyrics(
 }
 
 #[tauri::command]
-fn set_island_window_size(window: Window, width: f64, height: f64) -> Result<(), String> {
+fn set_island_window_size(
+    window: Window,
+    width: f64,
+    height: f64,
+    y_offset: Option<f64>,
+) -> Result<(), String> {
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let scale_factor = monitor.scale_factor();
+        let screen_width = monitor.size().width as f64 / scale_factor;
+        let new_x = ((screen_width - width) / 2.0).max(0.0);
+        let new_y = y_offset.unwrap_or(0.0);
+        let _ = window.set_position(tauri::LogicalPosition::new(new_x, new_y));
+    }
     let size = tauri::LogicalSize::new(width, height);
     window
         .set_size(size)
@@ -80,6 +92,20 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
             let handle = app.handle().clone();
+
+            // Position initial window at top-center
+            if let Some(window) = app.get_webview_window("main") {
+                let initial_w = 320.0;
+                let initial_h = 44.0;
+                if let Ok(Some(monitor)) = window.current_monitor() {
+                    let scale_factor = monitor.scale_factor();
+                    let screen_width = monitor.size().width as f64 / scale_factor;
+                    let new_x = ((screen_width - initial_w) / 2.0).max(0.0);
+                    let _ = window.set_position(tauri::LogicalPosition::new(new_x, 0.0));
+                }
+                let _ = window.set_size(tauri::LogicalSize::new(initial_w, initial_h));
+            }
+
             monitor::start_monitor_thread(handle.clone(), monitor);
             media::start_media_service(handle, media);
             Ok(())

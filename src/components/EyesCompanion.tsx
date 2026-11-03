@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { EyeMood } from '../types';
 
 interface EyesCompanionProps {
-  mood: EyeMood;
+  mood?: EyeMood;
   isMusicPlaying: boolean;
   cpuUsage: number;
   size?: 'small' | 'medium' | 'large';
@@ -11,7 +11,7 @@ interface EyesCompanionProps {
 }
 
 export const EyesCompanion: React.FC<EyesCompanionProps> = ({
-  mood: externalMood,
+  mood: externalMood = 'idle',
   isMusicPlaying,
   cpuUsage,
   size = 'small',
@@ -21,7 +21,7 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
   const [isBlinking, setIsBlinking] = useState(false);
   const [mouseOffset, setMouseOffset] = useState({ x: 0, y: 0 });
 
-  // Resolve current effective mood
+  // Determine current effective mood
   const currentMood: EyeMood = useMemo(() => {
     if (internalWink) return 'wink';
     if (cpuUsage > 80) return 'stress';
@@ -30,33 +30,41 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
     return externalMood;
   }, [internalWink, cpuUsage, externalMood, isMusicPlaying]);
 
-  // Periodic natural blinking
+  // Natural intermittent blinking
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
-    const triggerBlink = () => {
+    const scheduleBlink = () => {
       setIsBlinking(true);
       setTimeout(() => {
         setIsBlinking(false);
-        const nextDelay = 3000 + Math.random() * 4000;
-        timeoutId = setTimeout(triggerBlink, nextDelay);
-      }, 180);
+        // Double blink chance (20%)
+        if (Math.random() < 0.25) {
+          setTimeout(() => {
+            setIsBlinking(true);
+            setTimeout(() => {
+              setIsBlinking(false);
+              timeoutId = setTimeout(scheduleBlink, 3000 + Math.random() * 4000);
+            }, 120);
+          }, 150);
+        } else {
+          timeoutId = setTimeout(scheduleBlink, 3000 + Math.random() * 4500);
+        }
+      }, 160);
     };
 
-    timeoutId = setTimeout(triggerBlink, 2500);
+    timeoutId = setTimeout(scheduleBlink, 2000);
     return () => clearTimeout(timeoutId);
   }, []);
 
-  // Mouse look-at tracking
+  // Parallax mouse look-at tracking
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      // Relative offset towards screen center
       const centerX = window.innerWidth / 2;
       const centerY = 30;
-      const dx = (e.clientX - centerX) / (window.innerWidth / 2);
-      const dy = (e.clientY - centerY) / 400;
-      // Clamp between -3 and +3 pixels
+      const dx = (e.clientX - centerX) / (window.innerWidth / 2 || 1);
+      const dy = (e.clientY - centerY) / 300;
       setMouseOffset({
-        x: Math.max(-3, Math.min(3, dx * 3)),
+        x: Math.max(-2.5, Math.min(2.5, dx * 2.5)),
         y: Math.max(-2, Math.min(2, dy * 2)),
       });
     };
@@ -72,76 +80,82 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
     onClick?.();
   };
 
-  const eyeScale = size === 'large' ? 1.4 : size === 'medium' ? 1.1 : 0.85;
+  const scale = size === 'large' ? 1.3 : size === 'medium' ? 1.1 : 0.88;
+
+  // Dynamic glow color based on system health & music
+  const eyeColor =
+    currentMood === 'stress'
+      ? '#FB7185' // soft rose/coral
+      : isMusicPlaying
+      ? '#38BDF8' // electric sky blue
+      : '#E0F2FE'; // crisp soft ice-white
+
+  const glowStyle =
+    currentMood === 'stress'
+      ? 'drop-shadow(0 0 5px rgba(251, 113, 133, 0.6))'
+      : isMusicPlaying
+      ? 'drop-shadow(0 0 5px rgba(56, 189, 248, 0.5))'
+      : 'drop-shadow(0 0 4px rgba(224, 242, 254, 0.4))';
 
   return (
     <div
       onClick={handleClick}
-      className="flex items-center justify-center gap-1.5 cursor-pointer px-1 py-0.5 rounded-full hover:opacity-90 transition-opacity"
-      title="Aether Companion Eyes"
-      style={{ transform: `scale(${eyeScale})` }}
+      className="flex items-center justify-center gap-2 cursor-pointer py-0.5 px-1 rounded-full select-none hover:opacity-90 transition-opacity"
+      title="Aether Companion (Click to wink)"
+      style={{
+        transform: `scale(${scale})`,
+        filter: glowStyle,
+      }}
     >
       {/* Left Eye */}
       <motion.div
         animate={
           currentMood === 'groove'
-            ? { y: [0, -1.5, 0] }
+            ? { y: [0, -2, 0], rotate: [-2, 2, -2] }
             : currentMood === 'stress'
-            ? { x: [-1, 1, -1] }
-            : {}
+            ? { x: [-1.2, 1.2, -1.2], scaleY: [0.8, 1.1, 0.8] }
+            : { x: mouseOffset.x, y: mouseOffset.y }
         }
         transition={
           currentMood === 'groove'
-            ? { repeat: Infinity, duration: 0.8, ease: 'easeInOut' }
+            ? { repeat: Infinity, duration: 0.7, ease: 'easeInOut' }
             : currentMood === 'stress'
-            ? { repeat: Infinity, duration: 0.15 }
-            : undefined
+            ? { repeat: Infinity, duration: 0.12 }
+            : { type: 'spring', stiffness: 350, damping: 25 }
         }
       >
-        <svg width="18" height="18" viewBox="0 0 20 20" className="overflow-visible">
-          {/* Eyes rendering based on mood */}
+        <svg width="16" height="18" viewBox="0 0 16 18" className="overflow-visible">
           {currentMood === 'groove' ? (
-            // Happy crescent eye ^
+            // Curved joyful crescent
             <path
-              d="M 4 12 Q 10 4 16 12"
+              d="M 2 11 Q 8 3 14 11"
               fill="none"
-              stroke="#FFFFFF"
+              stroke={eyeColor}
               strokeWidth="2.8"
               strokeLinecap="round"
             />
           ) : currentMood === 'sleepy' ? (
-            // Sleepy slit eye -
+            // Relaxed resting slit
             <line
-              x1="4"
-              y1="10"
-              x2="16"
-              y2="10"
-              stroke="#FFFFFF"
-              strokeWidth="2.5"
+              x1="2"
+              y1="9"
+              x2="14"
+              y2="9"
+              stroke={eyeColor}
+              strokeWidth="2.4"
               strokeLinecap="round"
             />
           ) : (
-            // Normal / Stress / Look-at capsule eye
-            <g>
-              <rect
-                x="4"
-                y={isBlinking ? "9" : "3"}
-                width="12"
-                height={isBlinking ? "2" : "14"}
-                rx={isBlinking ? "1" : "6"}
-                fill="#FFFFFF"
-                className="transition-all duration-100 ease-out"
-              />
-              {!isBlinking && (
-                <circle
-                  cx={10 + mouseOffset.x}
-                  cy={10 + mouseOffset.y}
-                  r={currentMood === 'stress' ? 2 : 3}
-                  fill="#111827"
-                  className="transition-all duration-75"
-                />
-              )}
-            </g>
+            // Sleek OLED Capsule Eye with smooth blinking
+            <rect
+              x="2"
+              y={isBlinking ? "8" : "2"}
+              width="12"
+              height={isBlinking ? "2" : "14"}
+              rx={isBlinking ? "1" : "5.5"}
+              fill={eyeColor}
+              className="transition-all duration-100 ease-out"
+            />
           )}
         </svg>
       </motion.div>
@@ -149,72 +163,63 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
       {/* Right Eye */}
       <motion.div
         animate={
-          currentMood === 'groove'
-            ? { y: [0, -1.5, 0] }
+          currentMood === 'wink'
+            ? { scaleY: 0.2 }
+            : currentMood === 'groove'
+            ? { y: [0, -2, 0], rotate: [2, -2, 2] }
             : currentMood === 'stress'
-            ? { x: [1, -1, 1] }
-            : {}
+            ? { x: [1.2, -1.2, 1.2], scaleY: [0.8, 1.1, 0.8] }
+            : { x: mouseOffset.x, y: mouseOffset.y }
         }
         transition={
           currentMood === 'groove'
-            ? { repeat: Infinity, duration: 0.8, ease: 'easeInOut', delay: 0.1 }
+            ? { repeat: Infinity, duration: 0.7, ease: 'easeInOut', delay: 0.08 }
             : currentMood === 'stress'
-            ? { repeat: Infinity, duration: 0.15 }
-            : undefined
+            ? { repeat: Infinity, duration: 0.12 }
+            : { type: 'spring', stiffness: 350, damping: 25 }
         }
       >
-        <svg width="18" height="18" viewBox="0 0 20 20" className="overflow-visible">
+        <svg width="16" height="18" viewBox="0 0 16 18" className="overflow-visible">
           {currentMood === 'wink' ? (
-            // Winking right eye ;-)
+            // Playful wink arc
             <path
-              d="M 4 11 Q 10 16 16 11"
+              d="M 2 10 Q 8 15 14 10"
               fill="none"
-              stroke="#FFFFFF"
+              stroke={eyeColor}
               strokeWidth="2.8"
               strokeLinecap="round"
             />
           ) : currentMood === 'groove' ? (
-            // Happy crescent eye ^
+            // Curved joyful crescent
             <path
-              d="M 4 12 Q 10 4 16 12"
+              d="M 2 11 Q 8 3 14 11"
               fill="none"
-              stroke="#FFFFFF"
+              stroke={eyeColor}
               strokeWidth="2.8"
               strokeLinecap="round"
             />
           ) : currentMood === 'sleepy' ? (
-            // Sleepy slit eye -
+            // Relaxed resting slit
             <line
-              x1="4"
-              y1="10"
-              x2="16"
-              y2="10"
-              stroke="#FFFFFF"
-              strokeWidth="2.5"
+              x1="2"
+              y1="9"
+              x2="14"
+              y2="9"
+              stroke={eyeColor}
+              strokeWidth="2.4"
               strokeLinecap="round"
             />
           ) : (
-            // Normal / Stress capsule eye
-            <g>
-              <rect
-                x="4"
-                y={isBlinking ? "9" : "3"}
-                width="12"
-                height={isBlinking ? "2" : "14"}
-                rx={isBlinking ? "1" : "6"}
-                fill="#FFFFFF"
-                className="transition-all duration-100 ease-out"
-              />
-              {!isBlinking && (
-                <circle
-                  cx={10 + mouseOffset.x}
-                  cy={10 + mouseOffset.y}
-                  r={currentMood === 'stress' ? 2 : 3}
-                  fill="#111827"
-                  className="transition-all duration-75"
-                />
-              )}
-            </g>
+            // Sleek OLED Capsule Eye
+            <rect
+              x="2"
+              y={isBlinking ? "8" : "2"}
+              width="12"
+              height={isBlinking ? "2" : "14"}
+              rx={isBlinking ? "1" : "5.5"}
+              fill={eyeColor}
+              className="transition-all duration-100 ease-out"
+            />
           )}
         </svg>
       </motion.div>
