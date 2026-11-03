@@ -95,11 +95,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           }
         }}
         style={{
-          backgroundColor: '#0A0D14',
-          border: '1px solid rgba(255, 255, 255, 0.14)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.75)',
+          backgroundColor: '#000000',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
         }}
-        className={`bg-[#0A0D14] backdrop-blur-2xl border border-white/14 shadow-[0_8px_32px_rgba(0,0,0,0.75)] ring-1 ring-white/5 overflow-hidden transition-all duration-200 ${
+        className={`bg-black border border-white/12 overflow-hidden transition-all duration-200 ${
           mode === 'compact'
             ? 'rounded-full px-3 py-1 flex items-center justify-between w-[310px] h-[38px] hover:border-cyan-500/30 cursor-pointer'
             : 'rounded-3xl p-4 w-[430px] min-h-[265px] flex flex-col justify-between cursor-default'
