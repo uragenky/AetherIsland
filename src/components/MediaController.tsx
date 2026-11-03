@@ -33,6 +33,7 @@ export const MediaController: React.FC<MediaControllerProps> = ({
     : 0;
 
   const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (media.duration_ms <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const ratio = Math.max(0, Math.min(1, clickX / rect.width));
@@ -94,7 +95,7 @@ export const MediaController: React.FC<MediaControllerProps> = ({
         </div>
         <div className="flex justify-between text-[10px] text-neutral-400 font-mono px-0.5">
           <span>{formatTime(media.position_ms)}</span>
-          <span>{formatTime(media.duration_ms)}</span>
+          <span>{media.duration_ms > 0 ? formatTime(media.duration_ms) : '--:--'}</span>
         </div>
       </div>
 

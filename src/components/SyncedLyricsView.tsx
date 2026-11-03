@@ -22,15 +22,19 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   const activeLineRef = useRef<HTMLDivElement>(null);
   const [showRomanized, setShowRomanized] = useState(true);
 
+  // 350ms anticipation lead-in offset: displays next lyric before vocal starts so user can read ahead
+  const LYRIC_LEAD_OFFSET_MS = 350;
+
   // Find index of the currently active line
   const activeIndex = useMemo(() => {
     if (!lyricsData || !lyricsData.parsed_lines || lyricsData.parsed_lines.length === 0) {
       return -1;
     }
     const lines = lyricsData.parsed_lines;
+    const effectiveTime = currentPositionMs + LYRIC_LEAD_OFFSET_MS;
     let idx = -1;
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].time_ms <= currentPositionMs) {
+      if (lines[i].time_ms <= effectiveTime) {
         idx = i;
       } else {
         break;

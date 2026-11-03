@@ -13,6 +13,7 @@ pub struct LyricLine {
 pub struct LyricsData {
     pub title: String,
     pub artist: String,
+    pub duration_ms: Option<u64>,
     pub synced_lyrics: Option<String>,
     pub plain_lyrics: Option<String>,
     pub parsed_lines: Vec<LyricLine>,
@@ -120,6 +121,7 @@ impl LyricsState {
 
         #[derive(Deserialize)]
         struct LrclibResponse {
+            duration: Option<f64>,
             #[serde(rename = "syncedLyrics")]
             synced_lyrics: Option<String>,
             #[serde(rename = "plainLyrics")]
@@ -152,6 +154,7 @@ impl LyricsState {
                         let lyrics_data = LyricsData {
                             title: clean_title,
                             artist: clean_artist,
+                            duration_ms: first.duration.map(|d| (d * 1000.0) as u64),
                             synced_lyrics: first.synced_lyrics,
                             plain_lyrics: first.plain_lyrics,
                             parsed_lines,
@@ -180,6 +183,7 @@ impl LyricsState {
         let lyrics_data = LyricsData {
             title: clean_title,
             artist: clean_artist,
+            duration_ms: data.duration.map(|d| (d * 1000.0) as u64),
             synced_lyrics: data.synced_lyrics,
             plain_lyrics: data.plain_lyrics,
             parsed_lines,

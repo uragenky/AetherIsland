@@ -143,13 +143,15 @@
 - **LRCLIB Integration**:
   - Endpoint: `https://lrclib.net/api/get?track_name={title}&artist_name={artist}&duration={duration}`
   - Response parses both plain lyrics (`lyrics`) and timestamped synced lyrics (`syncedLyrics`).
-  - Automatic duration fallback: If SMTC reports 0 duration (e.g. YouTube web), duration automatically derives from the final lyric timestamp + 15s.
+  - Automatic duration fallback: Parses `duration` directly from LRCLIB response, with secondary fallback deriving from the final lyric timestamp + 15s when SMTC reports 0 duration (e.g., YouTube web in Chromium).
+- **Lead-In Anticipation Offset**:
+  - Implements a `350ms` forward offset (`currentPositionMs + 350`) in active karaoke line detection so that lyrics transition and scroll smoothly ahead of vocal onset, providing adequate reading and breathing preparation.
 - **Multi-Script Transliteration Engine**:
-  - **Japanese**: Full Hepburn Romaji transliterator covering Hiragana, Katakana, and comprehensive Joyo Kanji lyric lexicon (~1,000+ compounds & characters).
+  - **Japanese**: Comprehensive Hepburn Romaji engine combining curated lyric vocabulary overrides with a complete dataset of over 3,100 Joyo and Jinmeiyo Kanji (`src/utils/kanjiMap.json`), converting virtually all Japanese song lyrics to Romaji.
   - **Korean**: Algorithmic syllable decomposition based on Revised Romanization of Korean (RR), mapping Choseong, Jungseong, and Jongseong without dictionary bloat.
   - **Cyrillic**: Transliteration for Russian and Ukrainian alphabets.
   - **Arabic**: Phonetic Latin transliteration.
-  - Dual-line display in `SyncedLyricsView` with toggleable **Latin** button in header, plus transliterated compact marquee.
+  - Dual-line display in `SyncedLyricsView` with toggleable **Latin** button in header.
 
 ---
 
@@ -170,8 +172,8 @@ The island operates in three visual modes:
 
 2. **Compact Media Pill (Active Playback)**:
    - Size: `370px x 38px` (Native window: `380px x 44px`)
-   - Left: Eyes companion with groove/music animation + `<Mic2 />` lyrics button (opens Synced Lyrics view when lyrics exist).
-   - Middle: Single-line scrolling marquee of current track & artist or active lyric snippet (with Romanized Latin text for non-Latin songs).
+   - Left: Eyes companion with groove/music animation + `<Mic2 />` button with pulsing cyan indicator when synced lyrics are available.
+   - Middle: Stable Track Title & Artist display (`Title — Artist`) preserving glanceability without text cutting or lyric flickering, with Romanized tooltip on hover.
    - Right: Quick cyan-themed media playback controls (Previous, Play/Pause, Next) + Real-time animated audio visualizer bars. Double-click anywhere expands to full dashboard.
 
 3. **Expanded Island (Double-Click or Expand Button)**:

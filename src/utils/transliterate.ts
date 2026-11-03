@@ -1,3 +1,7 @@
+import ALL_KANJI_MAP_RAW from './kanjiMap.json';
+
+const ALL_KANJI_MAP = ALL_KANJI_MAP_RAW as Record<string, string>;
+
 /**
  * Universal Multi-Script Transliteration Engine
  * Converts Non-Latin scripts (Japanese Kanji/Kana, Korean Hangul, Arabic, Cyrillic) into Latin text (Romaji / Pinyin / Latin).
@@ -116,6 +120,11 @@ const KANJI_COMPOUNDS: [string, string][] = [
   ['心臓', 'shinzou'], ['涙色', 'namidairo'], ['真実', 'shinjitsu'], ['大切', 'taisetsu'],
   ['一緒', 'issho'], ['想い', 'omoi'], ['願い', 'negai'], ['始まり', 'hajimari'],
   ['終わり', 'owari'], ['物語', 'monogatari'], ['夢見', 'yumemi'], ['見失', 'miushina'],
+  ['彷徨', 'samayou'], ['曖昧', 'aimai'], ['閃光', 'senkou'], ['深淵', 'shin\'en'],
+  ['刹那', 'setsuna'], ['情熱', 'jounetsu'], ['残酷', 'zankoku'], ['静寂', 'seijaku'],
+  ['螺旋', 'rasen'], ['微熱', 'binetsu'], ['残響', 'zankyou'], ['幻影', 'gen\'ei'],
+  ['幻想', 'gensou'], ['追憶', 'tsuioku'], ['微笑', 'hohoemi'], ['黄昏', 'tasogare'],
+  ['夜明け', 'yoake'], ['夕焼け', 'yuuyake'], ['星屑', 'hoshikuzu'], ['茜色', 'akaneiro'],
 ];
 
 // Single Kanji to Romaji dictionary covering core Japanese music lyric vocabulary
@@ -144,6 +153,8 @@ const SINGLE_KANJI_MAP: Record<string, string> = {
   '泣': 'na', '笑': 'wara', '叫': 'sake', '描': 'ega',
   '落': 'ochi', '探': 'saga', '色': 'iro', '時': 'toki', '年': 'toshi', '友': 'tomo',
   '人': 'hito', '男': 'otoko', '女': 'onna', '子': 'ko', '家': 'ie', '部屋': 'heya',
+  '繋': 'tsuna', '彷': 'samayo', '徨': 'samayo', '壊': 'kowa', '奪': 'uba', '導': 'michibi',
+  '紡': 'tsumu', '霞': 'kasumi', '痕': 'ato', '憐': 'awa', '眩': 'mabu', '儚': 'hakana',
 };
 
 // --- 3. Cyrillic to Latin Mapping ---
@@ -209,9 +220,13 @@ export function transliterateText(text: string): string {
     if (code >= HANGUL_START && code <= HANGUL_END) {
       return transliterateHangul(ch);
     }
-    // Single Kanji
+    // Curated Single Kanji (Lyric Priority)
     if (SINGLE_KANJI_MAP[ch]) {
       return ` ${SINGLE_KANJI_MAP[ch]} `;
+    }
+    // Universal Joyo & Jinmeiyo Kanji Fallback (3,116 kanji)
+    if (ALL_KANJI_MAP[ch]) {
+      return ` ${ALL_KANJI_MAP[ch]} `;
     }
     // Japanese Kana
     if (KANA_MAP[ch]) {

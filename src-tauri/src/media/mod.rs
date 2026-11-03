@@ -95,8 +95,17 @@ impl MediaManager {
     }
 
     pub fn seek(&self, position_ms: u64) -> MediaSessionInfo {
+        #[cfg(target_os = "windows")]
+        {
+            let _ = windows_media::trigger_seek(position_ms);
+        }
+
         let mut curr = self.current.lock().unwrap();
-        curr.position_ms = position_ms.min(curr.duration_ms);
+        curr.position_ms = if curr.duration_ms > 0 {
+            position_ms.min(curr.duration_ms)
+        } else {
+            position_ms
+        };
         curr.clone()
     }
 
@@ -238,6 +247,18 @@ mod windows_media {
         if let Ok(mgr) = op.and_then(|o| o.get()) {
             if let Ok(session) = mgr.GetCurrentSession() {
                 let _ = session.TrySkipPreviousAsync();
+                return Ok(());
+            }
+        }
+        Err(())
+    }
+
+    pub fn trigger_seek(position_ms: u64) -> Result<(), ()> {
+        let op = GlobalSystemMediaTransportControlsSessionManager::RequestAsync();
+        if let Ok(mgr) = op.and_then(|o| o.get()) {
+            if let Ok(session) = mgr.GetCurrentSession() {
+                let pos_100ns = (position_ms as i64) * 10_000;
+                let _ = session.TryChangePlaybackPositionAsync(pos_100ns);
                 return Ok(());
             }
         }

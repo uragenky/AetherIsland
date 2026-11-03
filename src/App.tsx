@@ -95,11 +95,16 @@ export function App() {
     })
       .then((data) => {
         setLyricsData(data);
-        if (data.parsed_lines && data.parsed_lines.length > 0) {
-          const lastLineTime = data.parsed_lines[data.parsed_lines.length - 1].time_ms + 15000;
+        const resolvedDuration = data.duration_ms && data.duration_ms > 0
+          ? data.duration_ms
+          : (data.parsed_lines && data.parsed_lines.length > 0
+              ? data.parsed_lines[data.parsed_lines.length - 1].time_ms + 15000
+              : 0);
+
+        if (resolvedDuration > 0) {
           setMedia((prev) => ({
             ...prev,
-            duration_ms: prev.duration_ms > 0 ? prev.duration_ms : lastLineTime,
+            duration_ms: prev.duration_ms > 0 ? prev.duration_ms : resolvedDuration,
           }));
         }
       })

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -142,30 +142,8 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     }
   };
 
-  // Find active single line for compact lyric preview
-  const compactLyricText = useMemo(() => {
-    if (!lyricsData || !lyricsData.parsed_lines || lyricsData.parsed_lines.length === 0) {
-      return null;
-    }
-    const lines = lyricsData.parsed_lines;
-    let text = null;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].time_ms <= media.position_ms) {
-        text = lines[i].text;
-      } else {
-        break;
-      }
-    }
-    return text;
-  }, [lyricsData, media.position_ms]);
-
-  const compactLyricDisplay = useMemo(() => {
-    if (!compactLyricText) return null;
-    if (hasNonLatinScript(compactLyricText)) {
-      return transliterateText(compactLyricText);
-    }
-    return compactLyricText;
-  }, [compactLyricText]);
+  const displayTrack = media.title ? `${media.title}${media.artist ? ` — ${media.artist}` : ''}` : 'No Track Playing';
+  const romajiTrack = hasNonLatinScript(displayTrack) ? transliterateText(displayTrack) : null;
 
   return (
     <div className="fixed top-0 left-0 right-0 flex justify-center items-start select-none pointer-events-auto">
@@ -243,10 +221,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                     e.stopPropagation();
                     setMode('lyrics');
                   }}
-                  className="p-1 rounded-full text-cyan-400 hover:text-white hover:bg-cyan-500/20 transition-all cursor-pointer flex-shrink-0"
+                  className="relative p-1 rounded-full text-cyan-400 hover:text-white hover:bg-cyan-500/20 transition-all cursor-pointer flex-shrink-0"
                   title="Lyrics Available — Click to view Live Lyrics"
                 >
-                  <Mic2 className="w-3.5 h-3.5" />
+                  <Mic2 className="w-3.5 h-3.5 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]" />
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_4px_#22d3ee]" />
                 </button>
               )}
 
@@ -260,11 +239,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   toggleExpand();
                 }}
                 className="flex-1 min-w-0 flex items-center justify-center px-1 overflow-hidden cursor-grab active:cursor-grabbing"
-                title="Drag to reposition, double-click to expand dashboard"
+                title={romajiTrack ? `${displayTrack} (${romajiTrack})` : displayTrack}
               >
                 <div className="flex items-center gap-1.5 max-w-full text-xs truncate pointer-events-none">
                   <span className="text-cyan-300 font-medium truncate text-[11px]">
-                    {compactLyricDisplay ? `♪ ${compactLyricDisplay}` : `${media.title} — ${media.artist}`}
+                    {displayTrack}
                   </span>
                 </div>
               </div>

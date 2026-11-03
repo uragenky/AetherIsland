@@ -29,6 +29,7 @@ export interface LyricLine {
 export interface LyricsData {
   title: string;
   artist: string;
+  duration_ms?: number | null;
   synced_lyrics?: string | null;
   plain_lyrics?: string | null;
   parsed_lines: LyricLine[];
