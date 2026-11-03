@@ -143,30 +143,6 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             : 'p-4 w-[430px] min-h-[270px] flex flex-col justify-between'
         }`}
       >
-        {/* Organic Notch Ears (MacBook/iPhone Bezel Flares) when snapped to top */}
-        {isNotch && (
-          <>
-            {/* Left Ear Flare */}
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              className="absolute -left-[10px] top-0 pointer-events-none fill-black"
-            >
-              <path d="M 10 0 Q 10 10 0 10 L 10 10 Z" />
-            </svg>
-            {/* Right Ear Flare */}
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              className="absolute -right-[10px] top-0 pointer-events-none fill-black"
-            >
-              <path d="M 0 0 Q 0 10 10 10 L 0 10 Z" />
-            </svg>
-          </>
-        )}
-
         {/* COMPACT MODE */}
         {mode === 'compact' && (
           <div
