@@ -10,6 +10,7 @@ export function App() {
     ram_used_bytes: 8589934592,
     ram_total_bytes: 17179869184,
     ram_percentage: 50.0,
+    gpu_usage: 18.0,
     battery_percentage: 88,
     is_charging: true,
     net_download_kbps: 420.0,

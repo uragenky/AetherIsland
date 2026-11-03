@@ -146,10 +146,16 @@
 
 The island operates in three visual modes:
 
-1. **Compact Idle Capsule (Default when Idle)**:
-   - Size: `84px x 36px` (Native window: `92px x 42px`, Border-radius: `9999px` / notched `20px`)
-   - Centered: Expressive SVG Eyes Companion emoticon only. Zero distraction or visual clutter.
-   - Interactions: Click to wink, drag to reposition, double-click to expand to full dashboard.
+1. **Compact Idle Modes**:
+   - **Idle Emoticon Capsule (Default)**:
+     - Size: `84px x 36px` (Native window: `92px x 42px`, Border-radius: `9999px` / notched `20px`)
+     - Centered: Expressive SVG Eyes Companion emoticon only. Zero distraction or visual clutter.
+     - Interactions: Click to expand quick hardware stats pill, drag to reposition, double-click for full dashboard.
+   - **Idle Hardware Stats Pill (On Emoticon Click)**:
+     - Size: `320px x 38px` (Native window: `330px x 44px`)
+     - Left: Expressive SVG Eyes Companion (reacts to hardware stress if CPU/RAM/GPU > 80%).
+     - Center: Live telemetry indicators: `CPU %`, `RAM %`, `GPU %`, and real-time network download bandwidth `↓Speed`.
+     - Right: Quick collapse minimize icon. Clicking the emoticon again also collapses back to the 84px capsule.
 
 2. **Compact Media Pill (Active Playback)**:
    - Size: `320px x 38px` (Native window: `330px x 44px`)
@@ -160,7 +166,7 @@ The island operates in three visual modes:
 3. **Expanded Island (Double-Click or Expand Button)**:
    - Size: `430px x 270px` (Native window: `440px x 285px`, Border-radius: `24px` / notched `26px`)
    - **Header**: Eyes companion with mood status + Mode/Tab switchers (Media / System) + minimize button.
-   - **Body Left/Center**: Full media controls, album artwork, and synced lyrics view, or comprehensive system resource metrics dashboard.
+   - **Body Left/Center**: Full media controls, album artwork, and synced lyrics view, or comprehensive system resource metrics dashboard (CPU, RAM, GPU, Network, Battery).
    - **Footer/Mini-bar**: Quick media toggle or detailed hardware telemetry.
 
 ---

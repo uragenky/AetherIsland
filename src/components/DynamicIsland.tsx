@@ -38,6 +38,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const [mode, setMode] = useState<IslandMode>('compact');
   const [activeTab, setActiveTab] = useState<'media' | 'system'>('media');
   const [isNotch, setIsNotch] = useState(true);
+  const [showIdleStats, setShowIdleStats] = useState(false);
 
   // Listen to real-time window movement & edge snap state from Tauri backend
   useEffect(() => {
@@ -61,7 +62,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     const resizeWindow = async () => {
       try {
         if (mode === 'compact') {
-          if (isMediaActive) {
+          if (isMediaActive || showIdleStats) {
             await invoke('set_island_window_size', { width: 330.0, height: 44.0, yOffset: 0.0 });
           } else {
             await invoke('set_island_window_size', { width: 92.0, height: 42.0, yOffset: 0.0 });
@@ -74,7 +75,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       }
     };
     resizeWindow();
-  }, [mode, isMediaActive]);
+  }, [mode, isMediaActive, showIdleStats]);
 
   const toggleExpand = () => {
     if (mode === 'compact') {
@@ -145,7 +146,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         }}
         className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
-            ? isMediaActive
+            ? isMediaActive || showIdleStats
               ? 'px-3 py-1 flex items-center justify-between w-[320px] h-[38px]'
               : 'px-2 py-1 flex items-center justify-center w-[84px] h-[36px]'
             : 'p-4 w-[430px] min-h-[270px] flex flex-col justify-between'
@@ -223,18 +224,93 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 </button>
               </div>
             </div>
+          ) : showIdleStats ? (
+            /* IDLE STATS EXPANDED MODE: EYES ON LEFT + PROC, RAM, GPU, BANDWIDTH */
+            <div
+              className="flex items-center justify-between w-full h-full gap-2 px-0.5"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
+            >
+              {/* Eyes Companion (Left - click to collapse) */}
+              <div
+                className="flex items-center gap-1 flex-shrink-0 cursor-pointer"
+                style={{ display: 'inline-flex', alignItems: 'center' }}
+                onClick={() => setShowIdleStats(false)}
+                title="Click emoticon to hide stats"
+              >
+                <EyesCompanion
+                  mood="idle"
+                  isMusicPlaying={false}
+                  cpuUsage={metrics.cpu_usage}
+                  size="small"
+                  onClick={() => setShowIdleStats(false)}
+                />
+              </div>
+
+              {/* Hardware Stats (Middle - Draggable) */}
+              <div
+                onMouseDown={handleStartDrag}
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 text-[10px] font-mono text-neutral-300 select-none overflow-hidden cursor-grab active:cursor-grabbing px-1"
+                title="Drag to reposition, double-click to expand dashboard"
+              >
+                <span className="flex items-center gap-0.5">
+                  <span className="text-neutral-500 font-sans text-[8.5px] uppercase">CPU</span>
+                  <span className={metrics.cpu_usage > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
+                    {metrics.cpu_usage.toFixed(0)}%
+                  </span>
+                </span>
+                <span className="text-neutral-600">•</span>
+                <span className="flex items-center gap-0.5">
+                  <span className="text-neutral-500 font-sans text-[8.5px] uppercase">RAM</span>
+                  <span className={metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
+                    {metrics.ram_percentage.toFixed(0)}%
+                  </span>
+                </span>
+                <span className="text-neutral-600">•</span>
+                <span className="flex items-center gap-0.5">
+                  <span className="text-neutral-500 font-sans text-[8.5px] uppercase">GPU</span>
+                  <span className={(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
+                    {(metrics.gpu_usage ?? 0).toFixed(0)}%
+                  </span>
+                </span>
+                <span className="text-neutral-600">•</span>
+                <span className="flex items-center gap-0.5 text-cyan-300 font-semibold">
+                  <span>↓</span>
+                  <span>
+                    {metrics.net_download_kbps > 1024
+                      ? `${(metrics.net_download_kbps / 1024).toFixed(1)}M`
+                      : `${metrics.net_download_kbps.toFixed(0)}K`}
+                  </span>
+                </span>
+              </div>
+
+              {/* Collapse Action */}
+              <div className="flex items-center flex-shrink-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowIdleStats(false);
+                  }}
+                  className="text-neutral-500 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
+                  title="Collapse to emoticon only"
+                >
+                  <Minimize2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
           ) : (
-            /* IDLE MODE: ONLY EYES COMPANION */
+            /* IDLE MINIMALIST MODE: ONLY EYES COMPANION */
             <div
               onMouseDown={handleStartDrag}
-              className="flex items-center justify-center w-full h-full cursor-grab active:cursor-grabbing"
-              title="Aether Island (Click to wink, double-click to expand, drag to move)"
+              onClick={() => setShowIdleStats(true)}
+              className="flex items-center justify-center w-full h-full cursor-pointer active:cursor-grabbing"
+              title="Click to view CPU, RAM, GPU & Bandwidth stats (Double-click for full dashboard)"
             >
               <EyesCompanion
                 mood="idle"
                 isMusicPlaying={false}
                 cpuUsage={metrics.cpu_usage}
                 size="small"
+                onClick={() => setShowIdleStats(true)}
               />
             </div>
           )

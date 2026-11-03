@@ -3,6 +3,7 @@ export interface SystemMetrics {
   ram_used_bytes: number;
   ram_total_bytes: number;
   ram_percentage: number;
+  gpu_usage?: number | null;
   battery_percentage?: number | null;
   is_charging: boolean;
   net_download_kbps: number;

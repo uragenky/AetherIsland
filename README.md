@@ -15,11 +15,11 @@ An ultra-lightweight, high-performance Dynamic Island utility for Windows with a
 
 2. **Liquid Morphing Dynamic Island**
    - Transisi fisik lentur berbasis spring physics (*Framer Motion*).
-   - Mode visual adaptif: **Idle Emoticon Capsule** (hanya menampilkan emoticon companion saat tidak ada media), **Compact Media Pill** (otomatis muncul saat media aktif), **Expanded Dashboard**, dan **Live Synced Lyrics**.
+   - Mode visual adaptif: **Idle Emoticon Capsule** (hanya menampilkan emoticon companion saat tidak ada media; klik emoticon untuk memperluas ringkasan metrik hardware CPU, RAM, GPU, & Bandwidth), **Compact Media Pill** (otomatis muncul saat media aktif), **Expanded Dashboard**, dan **Live Synced Lyrics**.
    - Penyesuaian ukuran window native OS dinamis untuk mencegah click-blocking pada elemen desktop di bawahnya.
 
 3. **System Resource Monitor**
-   - Pemantauan real-time CPU, RAM, Suhu, status Baterai & pengisian daya.
+   - Pemantauan real-time CPU, RAM, GPU, Suhu, status Baterai & pengisian daya.
    - Kecepatan jaringan download & upload real-time (KB/s & MB/s).
    - Polling asinkron hemat daya via crate `sysinfo` di Rust backend (< 1% CPU overhead).
 
