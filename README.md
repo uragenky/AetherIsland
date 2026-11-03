@@ -15,22 +15,22 @@ An ultra-lightweight, high-performance Dynamic Island utility for Windows with a
 
 2. **Liquid Morphing Dynamic Island**
    - Transisi fisik lentur berbasis spring physics (*Framer Motion*).
-   - Mode visual adaptif: **Idle Emoticon Capsule** (hanya menampilkan emoticon companion saat tidak ada media; klik 1x mata untuk berkedip, dobel klik pada mata untuk toggle ringkasan metrik icon-only CPU, RAM, GPU, & Download/Upload Bandwidth, dobel klik pada stats untuk membuka dashboard penuh), **Compact Media Pill** (otomatis muncul saat media aktif dilengkapi tombol lirik cepat, kontrol lagu Previous/Play/Pause/Next, serta visualizer audio), **Expanded Dashboard**, dan **Live Synced Lyrics**.
+   - Mode visual adaptif: **Idle Emoticon Capsule** (hanya menampilkan emoticon companion saat tidak ada media; klik 1x mata untuk berkedip, dobel klik pada mata untuk toggle ringkasan metrik icon-only CPU, RAM `<MemoryStick>`, GPU `<Gpu>`, Baterai dinamis, & Download/Upload Bandwidth, dobel klik pada stats untuk membuka dashboard penuh), **Compact Media Pill** (otomatis muncul saat media aktif dilengkapi tombol lirik cepat, kontrol lagu Previous/Play/Pause/Next bernuansa cyan/biru elektrik, serta visualizer audio), **Expanded Dashboard**, dan **Live Synced Lyrics**.
    - Penyesuaian ukuran window native OS dinamis untuk mencegah click-blocking pada elemen desktop di bawahnya dengan drag threshold 5px.
 
 3. **System Resource Monitor**
-   - Pemantauan real-time CPU, RAM, GPU, Suhu, status Baterai & pengisian daya.
+   - Pemantauan real-time CPU, RAM, GPU, Suhu, status Baterai & deteksi pengisian daya native Win32.
    - Kecepatan jaringan download & upload real-time (KB/s & MB/s).
    - Polling asinkron hemat daya via crate `sysinfo` di Rust backend (< 1% CPU overhead).
 
 4. **Universal Media Controls (Windows GSMTC)**
    - Mendukung Spotify, YouTube di browser Chromium/Gecko, Foobar2000, VLC, Apple Music.
-   - Album art display, title marquee, timeline scrubber dengan interpolasi waktu lokal sub-detik real-time, Play/Pause, Next, dan Previous baik di mode compact maupun expanded.
+   - Album art display, title marquee, timeline scrubber dengan interpolasi waktu lokal sub-detik real-time (bebas bug looping posisi), Play/Pause, Next, dan Previous dengan tema visual cyan/biru elektrik.
 
 5. **Live Synced Lyrics (LRCLIB) & Multi-Script Romanizer**
    - Pencarian lirik otomatis bebas registrasi melalui LRCLIB REST API.
    - Pembersih judul otomatis (*regex sanitizer*) untuk membuang keyword noise video YouTube seperti `[Official Music Video]`, `(feat. ...)`.
-   - Transliterasi otomatis aksara non-Latin ke alfabet Latin (Romaji untuk Jepang Kana/Kanji, Revised Romanization untuk Korea Hangul, Cyrillic, dan Arab) pada tampilan lirik karaoke dan compact lyric preview.
+   - Transliterasi otomatis aksara non-Latin ke alfabet Latin (Romaji untuk Jepang Kanji & Kana, Revised Romanization untuk Korea Hangul, Cyrillic, dan Arab) pada tampilan lirik karaoke dan compact lyric preview.
    - Karaoke scrolling real-time dengan sinkronisasi milidetik dan fitur click-to-seek timestamp.
 
 ---

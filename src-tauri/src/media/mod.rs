@@ -198,8 +198,9 @@ mod windows_media {
                                         position_ms: pos_ms,
                                         duration_ms: dur_ms,
                                     };
-                                    manager.update_from_native(info.clone());
-                                    let _ = app_handle.emit("media-status", &info);
+                                    manager.update_from_native(info);
+                                    let current = manager.get_info();
+                                    let _ = app_handle.emit("media-status", &current);
                                 }
                             }
                         }

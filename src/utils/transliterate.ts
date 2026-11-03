@@ -1,6 +1,6 @@
 /**
  * Universal Multi-Script Transliteration Engine
- * Converts Non-Latin scripts (Japanese Kana/Kanji, Korean Hangul, Arabic, Cyrillic) into Latin text (Romaji / Pinyin / Latin).
+ * Converts Non-Latin scripts (Japanese Kanji/Kana, Korean Hangul, Arabic, Cyrillic) into Latin text (Romaji / Pinyin / Latin).
  */
 
 // --- 1. Korean Hangul Decomposition (Revised Romanization of Korean) ---
@@ -30,7 +30,7 @@ function transliterateHangul(char: string): string {
   return HANGUL_INITIALS[initial] + HANGUL_VOWELS[vowel] + HANGUL_FINALS[final];
 }
 
-// --- 2. Japanese Hiragana & Katakana to Hepburn Romaji ---
+// --- 2. Japanese Kana to Hepburn Romaji ---
 const KANA_MAP: Record<string, string> = {
   // Digraphs (small y)
   'きゃ': 'kya', 'きゅ': 'kyu', 'きょ': 'kyo',
@@ -73,6 +73,7 @@ const KANA_MAP: Record<string, string> = {
   'だ': 'da', 'ぢ': 'ji', 'づ': 'zu', 'で': 'de', 'ど': 'do',
   'ば': 'ba', 'び': 'bi', 'ぶ': 'bu', 'べ': 'be', 'ぼ': 'bo',
   'ぱ': 'pa', 'ぴ': 'pi', 'ぷ': 'pu', 'ぺ': 'pe', 'ぽ': 'po',
+  'っ': 't',
 
   // Basic Katakana
   'ア': 'a', 'イ': 'i', 'ウ': 'u', 'エ': 'e', 'オ': 'o',
@@ -90,27 +91,59 @@ const KANA_MAP: Record<string, string> = {
   'ダ': 'da', 'ヂ': 'ji', 'ヅ': 'zu', 'デ': 'de', 'ド': 'do',
   'バ': 'ba', 'ビ': 'bi', 'ブ': 'bu', 'ベ': 'be', 'ボ': 'bo',
   'パ': 'pa', 'ピ': 'pi', 'プ': 'pu', 'ペ': 'pe', 'ポ': 'po',
-  'ー': '-',
+  'ッ': 't', 'ー': '-',
 };
 
-// Common Japanese lyrics Kanji lexicon
-const COMMON_KANJI: Record<string, string> = {
-  '愛': 'ai', '恋': 'koi', '心': 'kokoro', '夢': 'yume', '空': 'sora',
-  '涙': 'namida', '夜': 'yoru', '雨': 'ame', '風': 'kaze', '花': 'hana',
-  '桜': 'sakura', '今': 'ima', '君': 'kimi', '僕': 'boku', '私': 'watashi',
-  '誰': 'dare', '何': 'nani', '光': 'hikari', '影': 'kage', '永遠': 'eien',
-  '未来': 'mirai', '世界': 'sekai', '時間': 'jikan', '歌': 'uta', '声': 'koe',
-  '手': 'te', '目': 'me', '道': 'michi', '旅': 'tabi', '命': 'inochi',
-  '魂': 'tamashii', '運命': 'unmei', '希望': 'kibou', '奇跡': 'kiseki',
-  '約束': 'yakusoku', '記憶': 'kioku', '感情': 'kanjou', '太陽': 'taiyou',
-  '月': 'tsuki', '星': 'hoshi', '海': 'umi', '雲': 'kumo', '雪': 'yuki',
-  '春': 'haru', '夏': 'natsu', '秋': 'aki', '冬': 'fuyu', '明日': 'ashita',
-  '昨日': 'kinou', '今日': 'kyou', '全部': 'zenbu', '本当': 'hontou',
-  '大切': 'taisetsu', '優しさ': 'yasashisa', '孤独': 'kodoku', '一緒': 'issho',
-  '一人': 'hitori', '二人': 'futari', '想い': 'omoi', '願い': 'negai',
-  '言葉': 'kotoba', '場所': 'basho', '始まり': 'hajimari', '終わり': 'owari',
-  '笑顔': 'egao', '自由': 'jiyuu', '信じて': 'shinjite', '忘れない': 'wasurenai',
-  '見つめて': 'mitsumete', '抱きしめて': 'dakishimete', '教えて': 'oshiete',
+// --- Japanese Kanji Compounds (Ordered by length to match multi-kanji words first) ---
+const KANJI_COMPOUNDS: [string, string][] = [
+  ['忘れないで', 'wasurenaide'], ['忘れない', 'wasurenai'], ['抱きしめて', 'dakishimete'],
+  ['見つめて', 'mitsumete'], ['教えて', 'oshiete'], ['信じて', 'shinjite'],
+  ['届いて', 'todoite'], ['消えて', 'kiete'], ['傷ついて', 'kizutsuite'],
+  ['優しさ', 'yasashisa'], ['悲しみ', 'kanashimi'], ['寂しさ', 'sabishisa'],
+  ['温もり', 'nukumori'], ['輝いて', 'kagayaite'], ['ありがとう', 'arigatou'],
+  ['さようなら', 'sayounara'], ['大丈夫', 'daijoubu'], ['大好き', 'daisuki'],
+  ['一番', 'ichiban'], ['世界', 'sekai'], ['永遠', 'eien'], ['未来', 'mirai'],
+  ['過去', 'kako'], ['現在', 'genzai'], ['時間', 'jikan'], ['約束', 'yakusoku'],
+  ['記憶', 'kioku'], ['感情', 'kanjou'], ['太陽', 'taiyou'], ['奇跡', 'kiseki'],
+  ['運命', 'unmei'], ['希望', 'kibou'], ['絶望', 'zetsubou'], ['言葉', 'kotoba'],
+  ['場所', 'basho'], ['昨日', 'kinou'], ['今日', 'kyou'], ['明日', 'ashita'],
+  ['今夜', 'konya'], ['毎日', 'mainichi'], ['瞬間', 'shunkan'], ['笑顔', 'egao'],
+  ['本当', 'hontou'], ['孤独', 'kodoku'], ['理由', 'riyuu'], ['季節', 'kisetsu'],
+  ['秘密', 'himitsu'], ['景色', 'keshiki'], ['現実', 'genjitsu'], ['全部', 'zenbu'],
+  ['二人', 'futari'], ['一人', 'hitori'], ['最初', 'saisho'], ['最後', 'saigo'],
+  ['自由', 'jiyuu'], ['自分', 'jibun'], ['呼吸', 'kokyuu'], ['鼓動', 'kodou'],
+  ['青空', 'aozora'], ['星空', 'hoshizora'], ['夜空', 'yozora'], ['花束', 'hanataba'],
+  ['心臓', 'shinzou'], ['涙色', 'namidairo'], ['真実', 'shinjitsu'], ['大切', 'taisetsu'],
+  ['一緒', 'issho'], ['想い', 'omoi'], ['願い', 'negai'], ['始まり', 'hajimari'],
+  ['終わり', 'owari'], ['物語', 'monogatari'], ['夢見', 'yumemi'], ['見失', 'miushina'],
+];
+
+// Single Kanji to Romaji dictionary covering core Japanese music lyric vocabulary
+const SINGLE_KANJI_MAP: Record<string, string> = {
+  '愛': 'ai', '恋': 'koi', '心': 'kokoro', '夢': 'yume', '空': 'sora', '涙': 'namida',
+  '夜': 'yoru', '雨': 'ame', '風': 'kaze', '花': 'hana', '桜': 'sakura', '今': 'ima',
+  '君': 'kimi', '僕': 'boku', '私': 'watashi', '俺': 'ore', '誰': 'dare', '何': 'nani',
+  '光': 'hikari', '影': 'kage', '闇': 'yami', '星': 'hoshi', '月': 'tsuki', '日': 'hi',
+  '海': 'umi', '雲': 'kumo', '雪': 'yuki', '春': 'haru', '夏': 'natsu', '秋': 'aki',
+  '冬': 'fuyu', '朝': 'asa', '夕': 'yuu', '道': 'michi', '街': 'machi', '扉': 'tobira',
+  '窓': 'mado', '翼': 'tsubasa', '羽': 'hane', '手': 'te', '目': 'me', '瞳': 'hitomi',
+  '足': 'ashi', '声': 'koe', '歌': 'uta', '音': 'oto', '命': 'inochi', '魂': 'tamashii',
+  '息': 'iki', '胸': 'mune', '血': 'chi', '旅': 'tabi', '絆': 'kizuna', '線': 'sen',
+  '神': 'kami', '鳥': 'tori', '波': 'nami', '炎': 'honoo', '火': 'hi', '水': 'mizu',
+  '木': 'ki', '森': 'mori', '山': 'yama', '川': 'kawa', '草': 'kusa', '葉': 'ha',
+  '白': 'shiro', '黒': 'kuro', '赤': 'aka', '青': 'ao', '生': 'i', '死': 'shi',
+  '見': 'mi', '聞': 'ki', '言': 'i', '話': 'hana', '知': 'shi', '分': 'waka',
+  '行': 'i', '来': 'ku', '帰': 'kae', '去': 'sa', '出': 'de', '入': 'hai',
+  '立': 'ta', '止': 'to', '待': 'ma', '追': 'o', '走': 'hashi', '飛': 'to',
+  '抱': 'da', '触': 'fure', '握': 'nigi', '離': 'hana', '届': 'todo', '響': 'hibi',
+  '揺': 'yure', '輝': 'kagaya', '照': 'tera', '燃': 'moe', '咲': 'saki', '散': 'chiri',
+  '逢': 'a', '会': 'a', '別': 'waka', '消': 'ki', '降': 'fu', '越': 'ko',
+  '強': 'tsuyo', '弱': 'yowa', '高': 'taka', '深': 'fuka', '遠': 'too', '近': 'chika',
+  '新': 'atara', '古': 'furu', '早': 'haya', '痛': 'ita', '悲': 'kana', '嬉': 'ureshi',
+  '優': 'yasa', '信': 'shin', '嘘': 'uso', '祈': 'ino', '誓': 'chika', '迷': 'mayo',
+  '泣': 'na', '笑': 'wara', '叫': 'sake', '描': 'ega',
+  '落': 'ochi', '探': 'saga', '色': 'iro', '時': 'toki', '年': 'toshi', '友': 'tomo',
+  '人': 'hito', '男': 'otoko', '女': 'onna', '子': 'ko', '家': 'ie', '部屋': 'heya',
 };
 
 // --- 3. Cyrillic to Latin Mapping ---
@@ -122,9 +155,9 @@ const CYRILLIC_MAP: Record<string, string> = {
   'ъ': '', 'ы': 'y', 'ь': "'", 'э': 'e', 'ю': 'yu', 'я': 'ya',
   'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Yo',
   'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
-  'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
-  'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch',
-  'Ъ': '', 'Ы': 'Y', 'Ь': "'", 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya',
+  'Н': 'N', 'О': 'O', 'P': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F',
+  'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch', 'Ъ': '', 'Ы': 'Y',
+  'Ь': "'", 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya',
 };
 
 // --- 4. Arabic to Latin Mapping ---
@@ -141,7 +174,6 @@ const ARABIC_MAP: Record<string, string> = {
  */
 export function hasNonLatinScript(text: string): boolean {
   if (!text) return false;
-  // Regex matches Hangul, Hiragana, Katakana, CJK Unified Ideographs, Arabic, Cyrillic
   return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF\u0600-\u06FF\u0400-\u04FF]/.test(text);
 }
 
@@ -156,9 +188,9 @@ export function transliterateText(text: string): string {
   let result = text;
 
   // 1. Replace multi-character Kanji / Japanese compound words first
-  for (const [kanji, romaji] of Object.entries(COMMON_KANJI)) {
-    if (result.includes(kanji)) {
-      result = result.split(kanji).join(` ${romaji} `);
+  for (const [compound, romaji] of KANJI_COMPOUNDS) {
+    if (result.includes(compound)) {
+      result = result.split(compound).join(` ${romaji} `);
     }
   }
 
@@ -169,13 +201,17 @@ export function transliterateText(text: string): string {
     }
   }
 
-  // 3. Process character by character for Hangul, single Kana, Cyrillic, Arabic
+  // 3. Process character by character for Hangul, single Kanji, Kana, Cyrillic, Arabic
   const chars = Array.from(result);
   const converted = chars.map((ch) => {
-    // Hangul
+    // Hangul (Korean)
     const code = ch.charCodeAt(0);
     if (code >= HANGUL_START && code <= HANGUL_END) {
       return transliterateHangul(ch);
+    }
+    // Single Kanji
+    if (SINGLE_KANJI_MAP[ch]) {
+      return ` ${SINGLE_KANJI_MAP[ch]} `;
     }
     // Japanese Kana
     if (KANA_MAP[ch]) {

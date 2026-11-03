@@ -17,6 +17,22 @@ pub struct SystemMetrics {
     pub net_upload_kbps: f32,
 }
 
+#[cfg(target_os = "windows")]
+#[repr(C)]
+struct SYSTEM_POWER_STATUS {
+    ac_line_status: u8,
+    battery_flag: u8,
+    battery_life_percent: u8,
+    system_status_flag: u8,
+    battery_life_time: u32,
+    battery_full_life_time: u32,
+}
+
+#[cfg(target_os = "windows")]
+extern "system" {
+    fn GetSystemPowerStatus(lpSystemPowerStatus: *mut SYSTEM_POWER_STATUS) -> i32;
+}
+
 pub struct MonitorState {
     sys: Mutex<System>,
     networks: Mutex<Networks>,
@@ -91,9 +107,31 @@ impl MonitorState {
         let net_download_kbps = (download_bytes as f32 / elapsed_secs) / 1024.0;
         let net_upload_kbps = (upload_bytes as f32 / elapsed_secs) / 1024.0;
 
-        // Battery detection fallback
-        let battery_percentage = None;
-        let is_charging = false;
+        // Battery detection via native Windows power API
+        #[allow(unused_mut)]
+        let mut battery_percentage: Option<u8> = None;
+        #[allow(unused_mut)]
+        let mut is_charging = false;
+
+        #[cfg(target_os = "windows")]
+        {
+            let mut status = SYSTEM_POWER_STATUS {
+                ac_line_status: 255,
+                battery_flag: 255,
+                battery_life_percent: 255,
+                system_status_flag: 0,
+                battery_life_time: 0,
+                battery_full_life_time: 0,
+            };
+            unsafe {
+                if GetSystemPowerStatus(&mut status) != 0 {
+                    is_charging = status.ac_line_status == 1;
+                    if status.battery_life_percent <= 100 {
+                        battery_percentage = Some(status.battery_life_percent);
+                    }
+                }
+            }
+        }
 
         // Estimated GPU usage based on system graphics activity
         let gpu_usage = Some(((cpu_usage * 0.75 + 4.0).clamp(0.0, 100.0) * 10.0).round() / 10.0);

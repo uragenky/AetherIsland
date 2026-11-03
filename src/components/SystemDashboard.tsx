@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, HardDrive, ArrowDown, ArrowUp, Battery, BatteryCharging, Zap } from 'lucide-react';
+import { Cpu, MemoryStick, ArrowDown, ArrowUp, Battery, BatteryCharging, Gpu } from 'lucide-react';
 import { SystemMetrics } from '../types';
 
 interface SystemDashboardProps {
@@ -39,7 +39,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({ metrics }) => 
       {/* RAM Metric Card */}
       <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/5">
         <div className={`p-1.5 rounded-lg ${getRamColor(metrics.ram_percentage)}`}>
-          <HardDrive className="w-3.5 h-3.5" />
+          <MemoryStick className="w-3.5 h-3.5" />
         </div>
         <div className="flex flex-col">
           <span className="text-[9px] text-neutral-400 uppercase tracking-wider font-medium">RAM</span>
@@ -52,7 +52,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({ metrics }) => 
       {/* GPU Metric Card */}
       <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/5">
         <div className={`p-1.5 rounded-lg ${getMetricColor(gpuVal)}`}>
-          <Zap className="w-3.5 h-3.5" />
+          <Gpu className="w-3.5 h-3.5" />
         </div>
         <div className="flex flex-col">
           <span className="text-[9px] text-neutral-400 uppercase tracking-wider font-medium">GPU</span>

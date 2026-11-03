@@ -18,10 +18,14 @@ import {
   Disc,
   Minimize2,
   Cpu,
-  HardDrive,
-  Zap,
+  MemoryStick,
+  Gpu,
   ArrowDown,
   ArrowUp,
+  BatteryCharging,
+  BatteryFull,
+  BatteryMedium,
+  BatteryLow,
   Mic2,
   Play,
   Pause,
@@ -79,6 +83,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   }, []);
 
   const isMediaActive = Boolean(media.has_media && media.is_playing);
+  const hasBattery = metrics.battery_percentage !== undefined && metrics.battery_percentage !== null;
 
   // Dynamically resize and re-center OS native window when mode changes
   useEffect(() => {
@@ -88,7 +93,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           if (isMediaActive) {
             await invoke('set_island_window_size', { width: 380.0, height: 44.0, yOffset: 0.0 });
           } else if (showIdleStats) {
-            await invoke('set_island_window_size', { width: 340.0, height: 44.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: hasBattery ? 395.0 : 340.0, height: 44.0, yOffset: 0.0 });
           } else {
             await invoke('set_island_window_size', { width: 92.0, height: 42.0, yOffset: 0.0 });
           }
@@ -100,7 +105,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       }
     };
     resizeWindow();
-  }, [mode, isMediaActive, showIdleStats]);
+  }, [mode, isMediaActive, showIdleStats, hasBattery]);
 
   const toggleExpand = () => {
     if (mode === 'compact') {
@@ -202,7 +207,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             ? isMediaActive
               ? 'px-3 py-1 flex items-center justify-between w-[370px] h-[38px]'
               : showIdleStats
-              ? 'px-3 py-1 flex items-center justify-between w-[340px] h-[38px]'
+              ? hasBattery
+                ? 'px-3 py-1 flex items-center justify-between w-[385px] h-[38px]'
+                : 'px-3 py-1 flex items-center justify-between w-[340px] h-[38px]'
               : 'px-2 py-1 flex items-center justify-center w-[84px] h-[36px]'
             : 'p-4 w-[430px] min-h-[270px] flex flex-col justify-between'
         }`}
@@ -262,14 +269,14 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 </div>
               </div>
 
-              {/* Compact Media Transport Controls (Prev, Play/Pause, Next) */}
+              {/* Compact Media Transport Controls (Prev, Play/Pause, Next) - Styled in Electric Cyan/Blue */}
               <div className="flex items-center gap-0.5 flex-shrink-0">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onPrev();
                   }}
-                  className="p-1 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                  className="p-1 text-cyan-400 hover:text-cyan-200 transition-colors cursor-pointer"
                   title="Previous Track"
                 >
                   <SkipBack className="w-3 h-3" />
@@ -279,7 +286,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                     e.stopPropagation();
                     onPlayPause();
                   }}
-                  className="p-1 text-white hover:text-cyan-300 transition-colors cursor-pointer"
+                  className="p-1 text-cyan-300 hover:text-white transition-colors cursor-pointer"
                   title={media.is_playing ? 'Pause' : 'Play'}
                 >
                   {media.is_playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -289,7 +296,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                     e.stopPropagation();
                     onNext();
                   }}
-                  className="p-1 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                  className="p-1 text-cyan-400 hover:text-cyan-200 transition-colors cursor-pointer"
                   title="Next Track"
                 >
                   <SkipForward className="w-3 h-3" />
@@ -365,9 +372,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
                 <span className="text-neutral-700">•</span>
 
-                {/* RAM */}
+                {/* RAM (MemoryStick Icon) */}
                 <div className="flex items-center gap-1" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
-                  <HardDrive className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                  <MemoryStick className="w-3 h-3 text-sky-400 flex-shrink-0" />
                   <span className={metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
                     {metrics.ram_percentage.toFixed(0)}%
                   </span>
@@ -375,13 +382,37 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
                 <span className="text-neutral-700">•</span>
 
-                {/* GPU */}
+                {/* GPU (Gpu Icon) */}
                 <div className="flex items-center gap-1" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
-                  <Zap className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                  <Gpu className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                   <span className={(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
                     {(metrics.gpu_usage ?? 0).toFixed(0)}%
                   </span>
                 </div>
+
+                {/* Dynamic Battery Indicator */}
+                {hasBattery && (
+                  <>
+                    <span className="text-neutral-700">•</span>
+                    <div
+                      className="flex items-center gap-1"
+                      title={metrics.is_charging ? `Charging: ${metrics.battery_percentage}%` : `Battery: ${metrics.battery_percentage}%`}
+                    >
+                      {metrics.is_charging ? (
+                        <BatteryCharging className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 animate-pulse" />
+                      ) : (metrics.battery_percentage ?? 100) > 75 ? (
+                        <BatteryFull className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                      ) : (metrics.battery_percentage ?? 100) > 25 ? (
+                        <BatteryMedium className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                      ) : (
+                        <BatteryLow className="w-3 h-3 text-rose-400 flex-shrink-0" />
+                      )}
+                      <span className={(metrics.battery_percentage ?? 100) <= 20 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
+                        {metrics.battery_percentage}%
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 <span className="text-neutral-700">•</span>
 

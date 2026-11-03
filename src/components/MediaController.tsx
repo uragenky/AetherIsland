@@ -102,7 +102,7 @@ export const MediaController: React.FC<MediaControllerProps> = ({
       <div className="flex items-center justify-center gap-5 pt-0.5">
         <button
           onClick={onPrev}
-          className="p-2 rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-all active:scale-90 cursor-pointer"
+          className="p-2 rounded-full text-cyan-400 hover:text-cyan-200 hover:bg-cyan-500/15 transition-all active:scale-90 cursor-pointer"
           title="Previous Track"
         >
           <SkipBack className="w-4 h-4 fill-current" />
@@ -110,7 +110,7 @@ export const MediaController: React.FC<MediaControllerProps> = ({
 
         <button
           onClick={onPlayPause}
-          className="p-3 rounded-full bg-white text-black hover:bg-neutral-200 shadow-xl transition-all active:scale-90 cursor-pointer"
+          className="p-3 rounded-full bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 shadow-[0_0_16px_rgba(56,189,248,0.45)] transition-all active:scale-90 cursor-pointer"
           title={media.is_playing ? 'Pause' : 'Play'}
         >
           {media.is_playing ? (
@@ -122,7 +122,7 @@ export const MediaController: React.FC<MediaControllerProps> = ({
 
         <button
           onClick={onNext}
-          className="p-2 rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-all active:scale-90 cursor-pointer"
+          className="p-2 rounded-full text-cyan-400 hover:text-cyan-200 hover:bg-cyan-500/15 transition-all active:scale-90 cursor-pointer"
           title="Next Track"
         >
           <SkipForward className="w-4 h-4 fill-current" />
