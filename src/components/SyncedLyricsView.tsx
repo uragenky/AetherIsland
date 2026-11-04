@@ -110,21 +110,16 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
     return idx;
   }, [processedLines, currentPositionMs, userOffsetMs]);
 
-  // Smooth centering scroll handler
+  // Smooth centering scroll handler using browser native centering
   const scrollToLine = useCallback((index: number) => {
     if (index < 0) return;
-    const container = containerRef.current;
     const lineEl = lineRefs.current[index];
-    if (!container || !lineEl) return;
+    if (!lineEl) return;
 
-    const containerHeight = container.clientHeight;
-    const lineTop = lineEl.offsetTop;
-    const lineHeight = lineEl.clientHeight;
-    const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
-
-    container.scrollTo({
-      top: Math.max(0, targetScrollTop),
+    lineEl.scrollIntoView({
       behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest',
     });
   }, []);
 
@@ -134,6 +129,16 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
       scrollToLine(activeIndex);
     }
   }, [activeIndex, scrollToLine]);
+
+  // Center on mount when lyrics view opens
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (activeIndex >= 0) {
+        scrollToLine(activeIndex);
+      }
+    }, 60);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Detect user manual scroll/wheel to pause auto-scrolling temporarily
   const handleUserWheel = () => {
