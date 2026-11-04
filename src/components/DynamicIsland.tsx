@@ -180,7 +180,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   return (
     <div
       className={`fixed inset-0 flex justify-center ${
-        isDockBottom ? 'items-center pb-0.5' : 'items-start'
+        isDockBottom ? 'items-end' : isDockTop ? 'items-start' : 'items-center'
       } select-none pointer-events-auto`}
     >
       <motion.div
@@ -193,48 +193,47 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         }}
         style={{
           backgroundColor: '#000000',
-          border: isDockTop
-            ? 'none'
-            : isDockBottom
-            ? '1px solid rgba(255, 255, 255, 0.3)'
-            : '1px solid rgba(255, 255, 255, 0.22)',
-          borderTop: isDockTop ? 'none' : '1px solid rgba(255, 255, 255, 0.3)',
-          borderBottom: isDockTop ? '1px solid rgba(255, 255, 255, 0.22)' : '1px solid rgba(255, 255, 255, 0.3)',
-          borderLeft: isDockTop ? '1px solid rgba(255, 255, 255, 0.22)' : '1px solid rgba(255, 255, 255, 0.3)',
-          borderRight: isDockTop ? '1px solid rgba(255, 255, 255, 0.22)' : '1px solid rgba(255, 255, 255, 0.3)',
+          borderTop: isDockTop ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
+          borderBottom: isDockBottom ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.35)',
           borderTopLeftRadius: isDockTop
             ? '0px'
+            : isDockBottom
+            ? mode === 'compact'
+              ? '20px'
+              : '26px'
             : mode === 'compact'
-            ? '20px'
+            ? '9999px'
             : '24px',
           borderTopRightRadius: isDockTop
             ? '0px'
-            : mode === 'compact'
-            ? '20px'
-            : '24px',
-          borderBottomLeftRadius: isDockTop
+            : isDockBottom
             ? mode === 'compact'
               ? '20px'
               : '26px'
             : mode === 'compact'
-            ? '20px'
+            ? '9999px'
             : '24px',
-          borderBottomRightRadius: isDockTop
-            ? mode === 'compact'
-              ? '20px'
-              : '26px'
-            : mode === 'compact'
-            ? '20px'
-            : '24px',
-          boxShadow: isDockBottom
-            ? isMediaActive
-              ? '0 0 18px 2px rgba(129, 140, 248, 0.45), 0 0 1px 1px rgba(255, 255, 255, 0.4), 0 6px 25px rgba(0, 0, 0, 0.9)'
-              : '0 0 16px 2px rgba(255, 255, 255, 0.28), 0 0 1px 1px rgba(255, 255, 255, 0.4), 0 6px 25px rgba(0, 0, 0, 0.9)'
+          borderBottomLeftRadius: isDockBottom
+            ? '0px'
             : isDockTop
-            ? '0 4px 20px rgba(0, 0, 0, 0.8), 0 0 14px rgba(255, 255, 255, 0.18)'
-            : isMediaActive
-            ? '0 0 18px 2px rgba(129, 140, 248, 0.35), 0 0 1px 1px rgba(255, 255, 255, 0.3), 0 8px 30px rgba(0, 0, 0, 0.8)'
-            : '0 0 14px rgba(255, 255, 255, 0.2), 0 0 1px 1px rgba(255, 255, 255, 0.25), 0 8px 30px rgba(0, 0, 0, 0.8)',
+            ? mode === 'compact'
+              ? '20px'
+              : '26px'
+            : mode === 'compact'
+            ? '9999px'
+            : '24px',
+          borderBottomRightRadius: isDockBottom
+            ? '0px'
+            : isDockTop
+            ? mode === 'compact'
+              ? '20px'
+              : '26px'
+            : mode === 'compact'
+            ? '9999px'
+            : '24px',
+          boxShadow: 'none',
         }}
         className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
@@ -248,12 +247,6 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             : 'p-4 w-[430px] min-h-[270px] flex flex-col justify-between'
         }`}
       >
-        {/* Subtle luminous edge highlight lines for clarity over dark taskbars */}
-        <div className="absolute inset-x-4 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent pointer-events-none" />
-        {!isDockTop && (
-          <div className="absolute inset-x-4 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/35 to-transparent pointer-events-none" />
-        )}
-
         {/* COMPACT MODE */}
         {mode === 'compact' && (
           isMediaActive ? (

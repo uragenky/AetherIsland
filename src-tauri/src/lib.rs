@@ -62,12 +62,11 @@ pub struct ScreenBounds {
     pub bottom: f64,
 }
 
-// Generous magnetic snap attraction threshold (in logical pixels)
-const SNAP_THRESHOLD_TOP: f64 = 75.0;
-const SNAP_THRESHOLD_BOTTOM: f64 = 75.0;
-const SNAP_THRESHOLD_SIDES: f64 = 60.0;
+// Tighter magnetic snap attraction threshold (in logical pixels)
+const SNAP_THRESHOLD_TOP: f64 = 32.0;
+const SNAP_THRESHOLD_BOTTOM: f64 = 32.0;
+const SNAP_THRESHOLD_SIDES: f64 = 28.0;
 const SCREEN_MARGIN_X: f64 = 16.0;
-const BOTTOM_DOCK_OFFSET: f64 = 6.0;
 
 fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
     let monitor = window.current_monitor().ok().flatten()?;
@@ -154,8 +153,8 @@ fn snap_window_to_edges(window: &Window) -> String {
         // Snap flush to top edge (works even if user dragged into negative coordinates)
         (screen.top, "top")
     } else if dist_from_bottom <= SNAP_THRESHOLD_BOTTOM {
-        // Snap flush in front of taskbar, lifted slightly so it never looks sunken
-        (screen.bottom - cur_h - BOTTOM_DOCK_OFFSET, "bottom")
+        // Snap flush to bottom edge exactly like top
+        (screen.bottom - cur_h, "bottom")
     } else {
         (cur_y, "floating")
     };
@@ -172,7 +171,7 @@ fn snap_window_to_edges(window: &Window) -> String {
     } else if dist_from_right <= SNAP_THRESHOLD_SIDES {
         // Magnetic pull to right margin (16px)
         screen.right - cur_w - SCREEN_MARGIN_X
-    } else if dist_from_center <= 45.0 {
+    } else if dist_from_center <= 30.0 {
         // Magnetic pull to exact horizontal center
         center_x
     } else {
@@ -295,9 +294,8 @@ fn set_island_window_size(
         // Top edge remains pinned flush to top of the screen
         screen.top
     } else if is_docked_bottom {
-        // Bottom edge remains pinned flush in front of taskbar with balanced offset:
-        // Grows upward into screen view
-        screen.bottom - height - BOTTOM_DOCK_OFFSET
+        // Bottom edge remains pinned flush to bottom of screen (grows upward)
+        screen.bottom - height
     } else {
         // Floating: expand symmetrically from vertical center
         (cur_y + (old_h - height) / 2.0)
