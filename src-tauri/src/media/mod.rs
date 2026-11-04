@@ -175,10 +175,7 @@ pub fn start_media_service(app_handle: AppHandle, manager: Arc<MediaManager>) {
 #[cfg(target_os = "windows")]
 mod windows_media {
     use super::*;
-    use windows::Media::Control::{
-        GlobalSystemMediaTransportControlsSession,
-        GlobalSystemMediaTransportControlsSessionManager,
-    };
+    use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
 
     pub fn init_windows_smtc(app_handle: AppHandle, manager: Arc<MediaManager>) {
         std::thread::spawn(move || {

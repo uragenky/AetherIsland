@@ -69,8 +69,9 @@ const SCREEN_MARGIN_X: f64 = 16.0;
 #[cfg(target_os = "windows")]
 fn get_windows_work_area(pos_x: i32, pos_y: i32, scale_factor: f64) -> Option<WorkArea> {
     use windows::Win32::Foundation::POINT;
-    use windows::Win32::Graphics::Gdi::{MonitorFromPoint, MONITOR_DEFAULTTONEAREST};
-    use windows::Win32::UI::WindowsAndMessaging::{GetMonitorInfoW, MONITORINFO};
+    use windows::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    };
 
     unsafe {
         let pt = POINT { x: pos_x, y: pos_y };
