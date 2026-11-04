@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMetrics {
@@ -157,6 +157,11 @@ pub fn start_monitor_thread(app_handle: AppHandle, state: Arc<MonitorState>) {
             interval.tick().await;
             let metrics = state.collect_metrics();
             let _ = app_handle.emit("system-metrics", &metrics);
+
+            // Re-assert always_on_top to ensure Windows taskbar never buries the island
+            if let Some(win) = app_handle.get_webview_window("main") {
+                let _ = win.set_always_on_top(true);
+            }
         }
     });
 }

@@ -87,6 +87,33 @@ fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
     })
 }
 
+fn ensure_always_on_top(window: &Window) {
+    let _ = window.set_always_on_top(true);
+
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        };
+
+        if let Ok(hwnd_ptr) = window.hwnd() {
+            unsafe {
+                let hwnd = HWND(hwnd_ptr.0);
+                let _ = SetWindowPos(
+                    hwnd,
+                    HWND_TOPMOST,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                );
+            }
+        }
+    }
+}
+
 fn snap_window_to_edges(window: &Window) -> String {
     let scale_factor = window
         .current_monitor()
@@ -153,6 +180,7 @@ fn snap_window_to_edges(window: &Window) -> String {
     };
 
     let _ = window.set_position(tauri::LogicalPosition::new(snapped_x, snapped_y));
+    ensure_always_on_top(window);
     let _ = window.emit("edge-snap-status", dock_status);
 
     dock_status.to_string()
@@ -235,8 +263,8 @@ fn set_island_window_size(
     });
     let screen_w = screen.right - screen.left;
 
-    let is_docked_top = (cur_y - screen.top).abs() <= 18.0;
-    let is_docked_bottom = (screen.bottom - (cur_y + old_h)).abs() <= 18.0;
+    let is_docked_top = (cur_y - screen.top) <= SNAP_THRESHOLD_TOP;
+    let is_docked_bottom = (screen.bottom - (cur_y + old_h)) <= SNAP_THRESHOLD_BOTTOM;
 
     // Vertical positioning:
     let new_y = if is_docked_top {
@@ -276,6 +304,7 @@ fn set_island_window_size(
         .set_size(size)
         .map_err(|e| format!("Failed to set window size: {}", e))?;
     let _ = window.set_position(tauri::LogicalPosition::new(new_x, new_y));
+    ensure_always_on_top(&window);
 
     Ok(())
 }
@@ -338,6 +367,7 @@ pub fn run() {
                     let _ = window.set_position(tauri::LogicalPosition::new(new_x, 0.0));
                 }
                 let _ = window.set_size(tauri::LogicalSize::new(initial_w, initial_h));
+                let _ = window.set_always_on_top(true);
             }
 
             monitor::start_monitor_thread(handle.clone(), monitor);
