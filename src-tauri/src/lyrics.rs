@@ -60,7 +60,23 @@ impl LyricsState {
     }
 
     /// Parses standard LRC timestamp format: [mm:ss.xx] or [mm:ss.xxx] Line text
+    /// Also respects [offset: +/-ms] tags for global timestamp compensation.
     pub fn parse_lrc(lrc_text: &str) -> Vec<LyricLine> {
+        let offset_regex = Regex::new(r"(?i)\[offset:\s*([+-]?\d+)\]").ok();
+        let mut offset_ms: i64 = 0;
+
+        // Check for [offset: +/-ms] in header lines
+        for line in lrc_text.lines() {
+            if let Some(ref re) = offset_regex {
+                if let Some(caps) = re.captures(line) {
+                    if let Ok(val) = caps[1].parse::<i64>() {
+                        offset_ms = val;
+                        break;
+                    }
+                }
+            }
+        }
+
         let lrc_regex = match Regex::new(r"\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)") {
             Ok(re) => re,
             Err(_) => return Vec::new(),
@@ -77,12 +93,19 @@ impl LyricsState {
                 } else {
                     fraction_str.parse().unwrap_or(0)
                 };
-                let total_time_ms = (min * 60 + sec) * 1000 + ms;
+                let raw_time_ms = (min * 60 + sec) * 1000 + ms;
                 let text = caps[4].trim().to_string();
 
                 if !text.is_empty() {
+                    // Standard LRC: positive offset displays earlier, negative displays later
+                    let adjusted_time_ms = if offset_ms >= 0 {
+                        raw_time_ms.saturating_sub(offset_ms as u64)
+                    } else {
+                        raw_time_ms.saturating_add((-offset_ms) as u64)
+                    };
+
                     lines.push(LyricLine {
-                        time_ms: total_time_ms,
+                        time_ms: adjusted_time_ms,
                         text,
                     });
                 }
@@ -119,7 +142,7 @@ impl LyricsState {
             url.push_str(&format!("&duration={}", dur));
         }
 
-        #[derive(Deserialize)]
+        #[derive(Deserialize, Clone)]
         struct LrclibResponse {
             duration: Option<f64>,
             #[serde(rename = "syncedLyrics")]
@@ -144,8 +167,38 @@ impl LyricsState {
             );
             if let Ok(search_resp) = self.client.get(&search_url).send().await {
                 if let Ok(results) = search_resp.json::<Vec<LrclibResponse>>().await {
-                    if let Some(first) = results.into_iter().next() {
-                        let parsed_lines = first
+                    let has_synced = |r: &LrclibResponse| {
+                        r.synced_lyrics
+                            .as_ref()
+                            .map(|s| !s.trim().is_empty())
+                            .unwrap_or(false)
+                    };
+
+                    let chosen = if let Some(target_dur) = duration_secs {
+                        let target_f = target_dur as f64;
+                        // Smart duration matching:
+                        // 1. Synced lyrics prioritize over plain lyrics
+                        // 2. Minimum absolute difference to target duration
+                        results.into_iter().min_by(|a, b| {
+                            let a_synced = has_synced(a);
+                            let b_synced = has_synced(b);
+                            if a_synced != b_synced {
+                                return b_synced.cmp(&a_synced);
+                            }
+                            let diff_a = a.duration.map(|d| (d - target_f).abs()).unwrap_or(9999.0);
+                            let diff_b = b.duration.map(|d| (d - target_f).abs()).unwrap_or(9999.0);
+                            diff_a.partial_cmp(&diff_b).unwrap_or(std::cmp::Ordering::Equal)
+                        })
+                    } else {
+                        results
+                            .iter()
+                            .find(|r| has_synced(r))
+                            .cloned()
+                            .or_else(|| results.into_iter().next())
+                    };
+
+                    if let Some(candidate) = chosen {
+                        let parsed_lines = candidate
                             .synced_lyrics
                             .as_deref()
                             .map(Self::parse_lrc)
@@ -154,9 +207,9 @@ impl LyricsState {
                         let lyrics_data = LyricsData {
                             title: clean_title,
                             artist: clean_artist,
-                            duration_ms: first.duration.map(|d| (d * 1000.0) as u64),
-                            synced_lyrics: first.synced_lyrics,
-                            plain_lyrics: first.plain_lyrics,
+                            duration_ms: candidate.duration.map(|d| (d * 1000.0) as u64),
+                            synced_lyrics: candidate.synced_lyrics,
+                            plain_lyrics: candidate.plain_lyrics,
                             parsed_lines,
                         };
 
@@ -242,5 +295,20 @@ mod tests {
         assert_eq!(parsed[0].text, "Line 1");
         assert_eq!(parsed[1].time_ms, 65100);
         assert_eq!(parsed[1].text, "Line 2");
+    }
+
+    #[test]
+    fn test_parse_lrc_with_offset() {
+        // Positive offset moves time earlier (subtracts ms)
+        let sample_pos = "[offset: 500]\n[00:10.00]Line 1";
+        let parsed_pos = LyricsState::parse_lrc(sample_pos);
+        assert_eq!(parsed_pos.len(), 1);
+        assert_eq!(parsed_pos[0].time_ms, 9500);
+
+        // Negative offset moves time later (adds ms)
+        let sample_neg = "[offset:-300]\n[00:10.00]Line 1";
+        let parsed_neg = LyricsState::parse_lrc(sample_neg);
+        assert_eq!(parsed_neg.len(), 1);
+        assert_eq!(parsed_neg[0].time_ms, 10300);
     }
 }

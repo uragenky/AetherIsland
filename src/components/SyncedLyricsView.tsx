@@ -25,8 +25,51 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   const activeLineRef = useRef<HTMLDivElement>(null);
   const [showRomanized, setShowRomanized] = useState(true);
 
-  // 550ms anticipation lead-in offset: displays next lyric before vocal starts so user can read ahead
-  const LYRIC_LEAD_OFFSET_MS = 550;
+  // Storage key for per-track manual offset compensation
+  const storageKey = useMemo(() => {
+    const a = (media.artist || '').trim().toLowerCase();
+    const t = (media.title || '').trim().toLowerCase();
+    return `circo_lyric_offset_${a}_${t}`;
+  }, [media.artist, media.title]);
+
+  const [userOffsetMs, setUserOffsetMs] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? parseInt(saved, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  // Reload saved offset when track changes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      setUserOffsetMs(saved ? parseInt(saved, 10) || 0 : 0);
+    } catch {
+      setUserOffsetMs(0);
+    }
+  }, [storageKey]);
+
+  const handleAdjustOffset = (deltaMs: number) => {
+    setUserOffsetMs((prev) => {
+      const next = Math.max(-15000, Math.min(15000, prev + deltaMs));
+      try {
+        localStorage.setItem(storageKey, next.toString());
+      } catch {}
+      return next;
+    });
+  };
+
+  const handleResetOffset = () => {
+    setUserOffsetMs(0);
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {}
+  };
+
+  // Base subtle anticipation (250ms) + per-track manual compensation
+  const BASE_LEAD_MS = 250;
 
   // Find index of the currently active line
   const activeIndex = useMemo(() => {
@@ -34,7 +77,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
       return -1;
     }
     const lines = lyricsData.parsed_lines;
-    const effectiveTime = currentPositionMs + LYRIC_LEAD_OFFSET_MS;
+    const effectiveTime = currentPositionMs + BASE_LEAD_MS + userOffsetMs;
     let idx = -1;
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].time_ms <= effectiveTime) {
@@ -44,7 +87,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
       }
     }
     return idx;
-  }, [lyricsData, currentPositionMs]);
+  }, [lyricsData, currentPositionMs, userOffsetMs]);
 
   // Smooth scroll active line to center
   useEffect(() => {
@@ -84,18 +127,50 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
           <span className="tracking-wide text-[11px]">Live Synced Lyrics</span>
         </div>
 
-        <button
-          onClick={() => setShowRomanized((prev) => !prev)}
-          className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-all cursor-pointer border ${
-            showRomanized
-              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
-              : 'text-neutral-400 border-white/10 hover:text-white'
-          }`}
-          title="Toggle Latin / Romanized text for non-Latin lyrics"
-        >
-          <Languages className="w-3 h-3" />
-          <span>Latin</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          {/* Per-track Manual Sync Offset: [-] [±0.00s] [+] */}
+          <div
+            className="flex items-center bg-white/5 border border-white/10 rounded-full px-1 py-0.5 text-[10px] text-neutral-300"
+            title="Adjust sync offset: [-] delay / [+] advance (0.25s). Click number to reset."
+          >
+            <button
+              onClick={() => handleAdjustOffset(-250)}
+              className="w-4 h-4 flex items-center justify-center hover:text-cyan-300 transition-colors cursor-pointer text-xs font-bold rounded-full hover:bg-white/10"
+              title="Delay lyrics (-0.25s)"
+            >
+              -
+            </button>
+            <button
+              onClick={handleResetOffset}
+              className={`px-1 font-mono text-[9px] cursor-pointer transition-colors ${
+                userOffsetMs !== 0 ? 'text-cyan-300 font-semibold' : 'text-neutral-400'
+              }`}
+              title="Click to reset offset to 0.00s"
+            >
+              {userOffsetMs > 0 ? `+${(userOffsetMs / 1000).toFixed(2)}s` : `${(userOffsetMs / 1000).toFixed(2)}s`}
+            </button>
+            <button
+              onClick={() => handleAdjustOffset(250)}
+              className="w-4 h-4 flex items-center justify-center hover:text-cyan-300 transition-colors cursor-pointer text-xs font-bold rounded-full hover:bg-white/10"
+              title="Advance lyrics (+0.25s)"
+            >
+              +
+            </button>
+          </div>
+
+          <button
+            onClick={() => setShowRomanized((prev) => !prev)}
+            className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-all cursor-pointer border ${
+              showRomanized
+                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                : 'text-neutral-400 border-white/10 hover:text-white'
+            }`}
+            title="Toggle Latin / Romanized text for non-Latin lyrics"
+          >
+            <Languages className="w-3 h-3" />
+            <span>Latin</span>
+          </button>
+        </div>
       </div>
 
       {/* Lyrics Content with bounded height, smooth mask gradients, and true center alignment */}
