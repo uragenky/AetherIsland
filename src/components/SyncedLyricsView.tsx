@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LyricLine, LyricsData, MediaSessionInfo } from '../types';
-import { ArrowLeft, Disc3, Languages, Play, Pause, Minimize2 } from 'lucide-react';
+import { Sparkles, Disc3, Languages, Play, Pause } from 'lucide-react';
 import { hasNonLatinScript, transliterateText } from '../utils/transliterate';
 
 interface SyncedLyricsViewProps {
@@ -11,7 +11,6 @@ interface SyncedLyricsViewProps {
   onSeek: (positionMs: number) => void;
   onPlayPause?: () => void;
   onBack: () => void;
-  onCollapse?: () => void;
 }
 
 export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
@@ -21,8 +20,6 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   isLoading,
   onSeek,
   onPlayPause,
-  onBack,
-  onCollapse,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLDivElement>(null);
@@ -49,15 +46,12 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
     return idx;
   }, [lyricsData, currentPositionMs]);
 
-  // Exact vertical center scroll alignment
+  // Smooth scroll active line to center
   useEffect(() => {
-    if (activeLineRef.current && containerRef.current) {
-      const container = containerRef.current;
-      const activeEl = activeLineRef.current;
-      const targetScroll = activeEl.offsetTop - container.clientHeight / 2 + activeEl.clientHeight / 2;
-      container.scrollTo({
-        top: Math.max(0, targetScroll),
+    if (activeLineRef.current) {
+      activeLineRef.current.scrollIntoView({
         behavior: 'smooth',
+        block: 'center',
       });
     }
   }, [activeIndex]);
@@ -82,56 +76,32 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full h-full text-white">
-      {/* Header bar */}
-      <div className="flex items-center justify-between pb-1.5 border-b border-white/10 mb-1 px-0.5">
+    <div className="flex flex-col w-full h-full text-white justify-between">
+      {/* Sub-toolbar */}
+      <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-1 px-1">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-cyan-400">
+          <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+          <span className="tracking-wide text-[11px]">Live Synced Lyrics</span>
+        </div>
+
         <button
-          onClick={onBack}
-          className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white px-2 py-0.5 rounded-full hover:bg-white/10 transition-all cursor-pointer flex-shrink-0"
+          onClick={() => setShowRomanized((prev) => !prev)}
+          className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-all cursor-pointer border ${
+            showRomanized
+              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+              : 'text-neutral-400 border-white/10 hover:text-white'
+          }`}
+          title="Toggle Latin / Romanized text for non-Latin lyrics"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back</span>
+          <Languages className="w-3 h-3" />
+          <span>Latin</span>
         </button>
-
-        <div className="flex flex-col items-center justify-center min-w-0 max-w-[210px] text-center px-2">
-          <span className="text-xs font-semibold text-white truncate max-w-full tracking-wide" title={media.title}>
-            {media.title || lyricsData?.title || 'No Title'}
-          </span>
-          <span className="text-[10px] text-cyan-300/80 truncate max-w-full -mt-0.5" title={media.artist}>
-            {media.artist || lyricsData?.artist || 'Unknown Artist'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            onClick={() => setShowRomanized((prev) => !prev)}
-            className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-all cursor-pointer border ${
-              showRomanized
-                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
-                : 'text-neutral-400 border-white/10 hover:text-white'
-            }`}
-            title="Toggle Latin / Romanized text for non-Latin lyrics"
-          >
-            <Languages className="w-3 h-3" />
-            <span>Latin</span>
-          </button>
-
-          {onCollapse && (
-            <button
-              onClick={onCollapse}
-              className="p-1 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer ml-0.5"
-              title="Minimize Island"
-            >
-              <Minimize2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* Lyrics Content with smooth mask gradients and precise center alignment */}
+      {/* Lyrics Content with bounded height, smooth mask gradients, and true center alignment */}
       <div
         ref={containerRef}
-        className="relative flex-1 overflow-y-auto overflow-x-hidden space-y-2 py-12 text-center select-none"
+        className="h-[150px] overflow-y-auto overflow-x-hidden space-y-3 py-16 text-center select-none"
         style={{
           maskImage:
             'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
@@ -164,7 +134,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
                 key={`${line.time_ms}-${index}`}
                 ref={isActive ? activeLineRef : null}
                 onClick={() => onSeek(line.time_ms)}
-                className={`cursor-pointer transition-all duration-300 px-3 py-1.5 rounded-xl flex flex-col items-center justify-center ${
+                className={`cursor-pointer transition-all duration-300 px-3 py-1 rounded-xl flex flex-col items-center justify-center ${
                   isActive
                     ? 'text-cyan-300 font-bold text-sm bg-cyan-500/15 shadow-[0_0_12px_rgba(34,211,238,0.25)] drop-shadow-[0_0_6px_rgba(56,189,248,0.4)]'
                     : isNear
@@ -189,7 +159,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
       </div>
 
       {/* Bottom Mini Progress Scrubber */}
-      <div className="pt-1 border-t border-white/10 flex items-center gap-2 px-1 text-white select-none">
+      <div className="pt-2 border-t border-white/10 flex items-center gap-2 px-1 text-white select-none">
         {onPlayPause && (
           <button
             onClick={onPlayPause}

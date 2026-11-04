@@ -444,48 +444,45 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               className="flex flex-col w-full h-full"
               onClick={(e) => e.stopPropagation()}
             >
-              {mode === 'lyrics' ? (
-                <SyncedLyricsView
-                  media={media}
-                  lyricsData={lyricsData}
-                  currentPositionMs={media.position_ms}
-                  isLoading={isLyricsLoading}
-                  onSeek={onSeek}
-                  onPlayPause={onPlayPause}
-                  onBack={() => setMode('expanded')}
-                  onCollapse={toggleExpand}
-                />
-              ) : (
-                <>
-                  {/* Header: Eyes Companion & Mode Switcher (Draggable) */}
-                  <div
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerUp}
-                    className="flex items-center justify-between pb-2 border-b border-white/10 mb-2 cursor-grab active:cursor-grabbing"
-                    title="Drag header to move"
-                  >
-                    <div className="flex items-center gap-2 select-none pointer-events-none min-w-0">
-                      <EyesCompanion
-                        mood="idle"
-                        isMusicPlaying={media.is_playing}
-                        cpuUsage={metrics.cpu_usage}
-                        size="medium"
-                      />
-                      <div className="flex flex-col min-w-0 max-w-[180px]">
-                        <span className="text-xs font-semibold text-white tracking-wide truncate" title={media.title}>
-                          {media.title || 'AetherIsland'}
-                        </span>
-                        <span className="text-[10px] text-cyan-300/80 -mt-0.5 truncate" title={media.artist}>
-                          {media.artist || (isNotch ? 'Snapped Notch' : 'Floating Pill')}
-                        </span>
-                      </div>
-                    </div>
+              {/* Unified Header: Eyes Companion & Song Title/Artist (Draggable) */}
+              <div
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                className="flex items-center justify-between pb-2 border-b border-white/10 mb-2 cursor-grab active:cursor-grabbing flex-shrink-0"
+                title="Drag header to move"
+              >
+                <div className="flex items-center gap-2 select-none pointer-events-none min-w-0">
+                  <EyesCompanion
+                    mood="idle"
+                    isMusicPlaying={media.is_playing}
+                    cpuUsage={metrics.cpu_usage}
+                    size="medium"
+                  />
+                  <div className="flex flex-col min-w-0 max-w-[190px]">
+                    <span className="text-xs font-semibold text-white tracking-wide truncate" title={media.title}>
+                      {media.title || 'AetherIsland'}
+                    </span>
+                    <span className="text-[10px] text-cyan-300/80 -mt-0.5 truncate" title={media.artist}>
+                      {media.artist || (isNotch ? 'Snapped Notch' : 'Floating Pill')}
+                    </span>
+                  </div>
+                </div>
 
-                    <div
-                      className="flex items-center gap-1 bg-white/5 rounded-full p-0.5 border border-white/5"
-                      onMouseDown={(e) => e.stopPropagation()}
+                <div
+                  className="flex items-center gap-1 bg-white/5 rounded-full p-0.5 border border-white/5"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  {mode === 'lyrics' ? (
+                    <button
+                      onClick={() => setMode('expanded')}
+                      className="px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer bg-white/20 text-white font-medium shadow-sm"
                     >
+                      <Disc className="w-3 h-3" />
+                      <span>Player</span>
+                    </button>
+                  ) : (
+                    <>
                       <button
                         onClick={() => {
                           setMode('expanded');
@@ -515,69 +512,79 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                         <Activity className="w-3 h-3" />
                         <span>System</span>
                       </button>
+                    </>
+                  )}
 
+                  <button
+                    onClick={toggleExpand}
+                    className="p-1 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer ml-0.5"
+                    title="Minimize Island"
+                  >
+                    <Minimize2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Body View */}
+              {mode === 'lyrics' ? (
+                <SyncedLyricsView
+                  media={media}
+                  lyricsData={lyricsData}
+                  currentPositionMs={media.position_ms}
+                  isLoading={isLyricsLoading}
+                  onSeek={onSeek}
+                  onPlayPause={onPlayPause}
+                  onBack={() => setMode('expanded')}
+                />
+              ) : activeTab === 'media' ? (
+                <MediaController
+                  media={media}
+                  onPlayPause={onPlayPause}
+                  onNext={onNext}
+                  onPrev={onPrev}
+                  onSeek={onSeek}
+                  onToggleLyrics={() => setMode('lyrics')}
+                  showLyricsButton={true}
+                />
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  <SystemDashboard metrics={metrics} />
+                  {/* Mini Media Bar inside System Tab */}
+                  <div className="flex items-center justify-between bg-neutral-900/80 rounded-xl px-3 py-2 border border-white/5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Music2 className="w-4 h-4 text-cyan-400 flex-shrink-0 animate-pulse" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-medium text-white truncate max-w-[180px]">
+                          {media.title || 'No Media'}
+                        </span>
+                        <span className="text-[10px] text-neutral-400 truncate max-w-[180px]">
+                          {media.artist || 'Idle'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
                       <button
-                        onClick={toggleExpand}
-                        className="p-1 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer ml-0.5"
-                        title="Minimize Island"
+                        onClick={onPrev}
+                        className="p-1 text-cyan-400 hover:text-cyan-200 transition-colors cursor-pointer"
                       >
-                        <Minimize2 className="w-3.5 h-3.5" />
+                        <SkipBack className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={onPlayPause}
+                        className="p-1 text-cyan-300 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {media.is_playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        onClick={onNext}
+                        className="p-1 text-cyan-400 hover:text-cyan-200 transition-colors cursor-pointer"
+                      >
+                        <SkipForward className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
-
-                  {/* Main Body View */}
-                  {activeTab === 'media' ? (
-                    <MediaController
-                      media={media}
-                      onPlayPause={onPlayPause}
-                      onNext={onNext}
-                      onPrev={onPrev}
-                      onSeek={onSeek}
-                      onToggleLyrics={() => setMode('lyrics')}
-                      showLyricsButton={true}
-                    />
-                  ) : (
-                    <div className="flex flex-col gap-2.5">
-                      <SystemDashboard metrics={metrics} />
-                      {/* Mini Media Bar inside System Tab */}
-                      <div className="flex items-center justify-between bg-neutral-900/80 rounded-xl px-3 py-2 border border-white/5">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <Music2 className="w-4 h-4 text-cyan-400 flex-shrink-0 animate-pulse" />
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-xs font-medium text-white truncate max-w-[180px]">
-                              {media.title || 'No Media'}
-                            </span>
-                            <span className="text-[10px] text-neutral-400 truncate max-w-[180px]">
-                              {media.artist || 'Idle'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={onPrev}
-                            className="p-1 text-cyan-400 hover:text-cyan-200 transition-colors cursor-pointer"
-                          >
-                            <SkipBack className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={onPlayPause}
-                            className="p-1 text-cyan-300 hover:text-white transition-colors cursor-pointer"
-                          >
-                            {media.is_playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                          </button>
-                          <button
-                            onClick={onNext}
-                            className="p-1 text-cyan-400 hover:text-cyan-200 transition-colors cursor-pointer"
-                          >
-                            <SkipForward className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
+                </div>
               )}
             </motion.div>
           </AnimatePresence>
