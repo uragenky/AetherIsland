@@ -63,10 +63,11 @@ pub struct ScreenBounds {
 }
 
 // Generous magnetic snap attraction threshold (in logical pixels)
-const SNAP_THRESHOLD_TOP: f64 = 65.0;
-const SNAP_THRESHOLD_BOTTOM: f64 = 65.0;
+const SNAP_THRESHOLD_TOP: f64 = 75.0;
+const SNAP_THRESHOLD_BOTTOM: f64 = 75.0;
 const SNAP_THRESHOLD_SIDES: f64 = 60.0;
 const SCREEN_MARGIN_X: f64 = 16.0;
+const BOTTOM_DOCK_OFFSET: f64 = 6.0;
 
 fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
     let monitor = window.current_monitor().ok().flatten()?;
@@ -153,8 +154,8 @@ fn snap_window_to_edges(window: &Window) -> String {
         // Snap flush to top edge (works even if user dragged into negative coordinates)
         (screen.top, "top")
     } else if dist_from_bottom <= SNAP_THRESHOLD_BOTTOM {
-        // Snap flush to bottom of screen in front of taskbar
-        (screen.bottom - cur_h, "bottom")
+        // Snap flush in front of taskbar, lifted slightly so it never looks sunken
+        (screen.bottom - cur_h - BOTTOM_DOCK_OFFSET, "bottom")
     } else {
         (cur_y, "floating")
     };
@@ -186,10 +187,33 @@ fn snap_window_to_edges(window: &Window) -> String {
     dock_status.to_string()
 }
 
+#[cfg(target_os = "windows")]
+extern "system" {
+    fn GetAsyncKeyState(vKey: i32) -> i16;
+}
+
 #[tauri::command]
 async fn start_window_drag(window: Window) -> Result<(), String> {
     window.start_dragging().map_err(|e| e.to_string())?;
-    // Brief async yield to allow OS window manager to commit final drop coordinates
+
+    #[cfg(target_os = "windows")]
+    {
+        // Allow brief time for the native modal drag loop to engage
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let mut loop_count = 0;
+        // While left mouse button (VK_LBUTTON = 0x01) is held down, user is still actively dragging
+        while (unsafe { GetAsyncKeyState(0x01) } as u16 & 0x8000) != 0 && loop_count < 1800 {
+            tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+            loop_count += 1;
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+
+    // Left mouse button has now been released by the user!
+    // Allow brief time for Windows DWM drop coordinates to settle
     tokio::time::sleep(std::time::Duration::from_millis(35)).await;
     snap_window_to_edges(&window);
     Ok(())
@@ -271,9 +295,9 @@ fn set_island_window_size(
         // Top edge remains pinned flush to top of the screen
         screen.top
     } else if is_docked_bottom {
-        // Bottom edge remains pinned flush to bottom of screen in front of taskbar:
+        // Bottom edge remains pinned flush in front of taskbar with balanced offset:
         // Grows upward into screen view
-        screen.bottom - height
+        screen.bottom - height - BOTTOM_DOCK_OFFSET
     } else {
         // Floating: expand symmetrically from vertical center
         (cur_y + (old_h - height) / 2.0)
