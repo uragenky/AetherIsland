@@ -60,7 +60,7 @@
 
 ## 4. Module Specifications
 
-### 4.1. Windowing & Display Engine (`src-tauri/src/window.rs`)
+### 4.1. Windowing & Display Engine (`src-tauri/src/lib.rs`)
 - **Window Attributes**:
   - `decorations: false`
   - `transparent: true`
@@ -70,6 +70,20 @@
   - In traditional transparent overlay windows, a full-width transparent window captures mouse clicks and blocks user interactions with browser tabs or application title bars.
   - *Solution*: AetherIsland resizes the OS-level native window bounds dynamically to match the current visual size of the pill (e.g., `84x36` in idle compact capsule, `370x38` in media mode, `430x270` in expanded mode).
   - Area outside the pill remains nonexistent to the OS window manager, guaranteeing 100% click pass-through.
+- **Multi-Edge Docking & WorkArea Support**:
+  - Supports three distinct docking modes: `'top'`, `'bottom'`, and `'floating'`.
+  - Integrates native Win32 `GetMonitorInfoW` (`rcWork`) to read the display's usable work area, automatically compensating for the Windows Taskbar height when docking to the bottom of the screen.
+  - Directional expansion in `set_island_window_size`:
+    - **Top Docked**: Expands downward with top edge pinned.
+    - **Bottom Docked**: Expands upward (`new_y = work_area.bottom - height`), keeping the bottom edge flush against the taskbar without pushing content off-screen.
+    - **Horizontal Anchoring**: Preserves user-defined horizontal positions (e.g., bottom-left corner with 16px margin, bottom-right, or centered) across mode transitions instead of forcing center repositioning.
+- **Physical Magnetic Snapping**:
+  - When dragging finishes (`start_window_drag` returns on mouse release):
+    - Top threshold: $\le 38\text{px} \to$ magnetically snaps flush to $y = \text{work\_area.top}$.
+    - Bottom threshold: $\le 38\text{px} \to$ magnetically snaps flush to $y = \text{work\_area.bottom} - \text{height}$.
+    - Left/Right threshold: $\le 38\text{px} \to$ magnetically snaps to screen margin ($16\text{px}$).
+    - Center threshold: $\pm 35\text{px} \to$ magnetically snaps to horizontal center.
+  - Real-time preview: Emits `edge-snap-status` during drag to dynamically morph corner radii and borders before release.
 - **Drag Threshold & Interaction Isolation**:
   - Direct `onMouseDown` calls to `window.start_dragging()` cause the OS window manager to immediately take mouse capture, suppressing browser `click` and `dblclick` events.
   - *Solution*: A 5-pixel displacement threshold is implemented. If movement is under 5px, mouse up and click/double-click events fire instantaneously (allowing winks on single-click and stats toggle on double-click). Only active drags past 5px initiate native window movement.
@@ -140,19 +154,30 @@
   ```regex
   \b(official\s*(music)?\s*video|lyric\s*video|audio|remastered|hd|4k|feat\..*|ft\..*)\b|[\[\(].*?[\]\)]
   ```
-- **LRCLIB Integration**:
-  - Endpoint: `https://lrclib.net/api/get?track_name={title}&artist_name={artist}&duration={duration}`
-  - Response parses both plain lyrics (`lyrics`) and timestamped synced lyrics (`syncedLyrics`).
-  - Automatic duration fallback: Parses `duration` directly from LRCLIB response, with secondary fallback deriving from the final lyric timestamp + 15s when SMTC reports 0 duration (e.g., YouTube web in Chromium).
-- **Lead-In Anticipation Offset & Dead-Center Alignment**:
-  - Implements a `550ms` forward anticipation offset (`currentPositionMs + 550`) in active karaoke line detection so that lyrics transition smoothly ahead of vocal onset, providing optimal reading preparation.
-  - Utilizes mathematical `scrollTo` centering (`activeEl.offsetTop - container.clientHeight / 2 + activeEl.clientHeight / 2`) and vertical `py-12` padding so that the active singing line remains exactly dead-center in the karaoke viewport.
+- **LRCLIB Integration & Smart Duration Matching**:
+  - Primary Endpoint: `https://lrclib.net/api/get?track_name={title}&artist_name={artist}&duration={duration}`
+  - Secondary Fuzzy Search: `https://lrclib.net/api/search?q={title}+{artist}`
+  - **Smart Candidate Selection**: When exact match falls back to fuzzy search, candidates are filtered to prioritize those with `syncedLyrics`. If audio duration is known, the candidate minimizing $|\text{candidate\_duration} - \text{audio\_duration}|$ is chosen, preventing mismatch between music video and album cuts.
+  - **Standard LRC `[offset: +/-ms]` Tag Support**: Parses global offset header tags, shifting `time_ms` forward (positive) or backward (negative) with overflow protection.
+- **Micro-Offset Sync Controls & Click-to-Seek**:
+  - Compact toolbar pill in `SyncedLyricsView`:
+    - `[-]`: Delays lyrics highlighting by 0.25s.
+    - `[+]`: Advances lyrics highlighting by 0.25s.
+    - Reset button: Restores offset to `0.00s`.
+    - Per-track persistence saved to `localStorage` (`circo_lyric_offset_${artist}_${title}`).
+  - **Click-to-Seek**: Clicking any lyric line immediately seeks native Windows media playback to that line's exact timestamp.
+  - **Dead-Center Auto-Scrolling**: Dynamic `scrollIntoView({ behavior: 'smooth', block: 'center' })` keeping active lines centered within a bounded, masked viewport.
 - **Multi-Script Transliteration Engine**:
-  - **Japanese**: Comprehensive Hepburn Romaji engine combining curated lyric vocabulary overrides with a complete dataset of over 3,100 Joyo and Jinmeiyo Kanji (`src/utils/kanjiMap.json`), converting virtually all Japanese song lyrics to Romaji.
-  - **Korean**: Algorithmic syllable decomposition based on Revised Romanization of Korean (RR), mapping Choseong, Jungseong, and Jongseong without dictionary bloat.
-  - **Cyrillic**: Transliteration for Russian and Ukrainian alphabets.
+  - **Japanese (Hepburn Romaji)**:
+    - Fixed Hiragana `で` particle mapping.
+    - Comprehensive Joyo & Jinmeiyo Kanji dataset (3,116 kanji) with modern Joyo readings (numbers 1-10, everyday lyric vocabulary, On/Kun standard readings).
+    - Dynamic Sokuon (`っ`/`ッ`) engine that duplicates the subsequent consonant (e.g., `kippu`, `ippai`, `gakkou`).
+    - Kanji repetition mark (`々`) expansion (e.g., `hibi`, `tokidoki`, `hitobito`).
+    - Extensive curated dictionary of common Japanese song lyric compound words and inflected verb okurigana (`KANJI_COMPOUNDS`).
+  - **Korean (Hangul)**: Algorithmic syllable decomposition based on Revised Romanization of Korean (RR), mapping Choseong, Jungseong, and Jongseong.
+  - **Cyrillic**: Transliteration for Slavic alphabets.
   - **Arabic**: Phonetic Latin transliteration.
-  - Dual-line display in `SyncedLyricsView` with toggleable **Latin** button in header, plus integrated mini progress scrubber and track title & artist header.
+  - Dual-line display in `SyncedLyricsView` with toggleable **Latin** button in header.
 
 ---
 
@@ -179,14 +204,8 @@ The island operates in three visual modes:
 
 3. **Expanded Island (Double-Click or Expand Button)**:
    - Size: `430px x 270px` (Native window: `440px x 285px`, Border-radius: `24px` / notched `26px`)
-   - **Header**: Eyes companion with mood status + Mode/Tab switchers (Media / System) + minimize button.
+   - **Header**: Eyes companion with mood status + unified draggable header + Mode/Tab switchers (Media / System) + minimize button.
    - **Body Left/Center**: Full media controls with glowing blue/cyan transport controls, album artwork, and synced lyrics view with automatic Latin/Romaji transliteration for Japanese (Kana & full Kanji dictionary), Korean (Hangul), Arabic, and Cyrillic, or comprehensive system resource metrics dashboard (CPU, RAM, GPU, Network, Battery).
-   - **Footer/Mini-bar**: Quick media toggle or detailed hardware telemetry.
-
-3. **Expanded Island (Double-Click or Expand Button)**:
-   - Size: `430px x 270px` (Native window: `440px x 285px`, Border-radius: `24px` / notched `26px`)
-   - **Header**: Eyes companion with mood status + Mode/Tab switchers (Media / System) + minimize button.
-   - **Body Left/Center**: Full media controls, album artwork, and synced lyrics view, or comprehensive system resource metrics dashboard (CPU, RAM, GPU, Network, Battery).
    - **Footer/Mini-bar**: Quick media toggle or detailed hardware telemetry.
 
 ---
