@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { LyricLine, LyricsData, MediaSessionInfo } from '../types';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { LyricsData, MediaSessionInfo } from '../types';
 import { Sparkles, Disc3, Languages, Play, Pause } from 'lucide-react';
 import { hasNonLatinScript, transliterateText } from '../utils/transliterate';
 
@@ -13,6 +13,12 @@ interface SyncedLyricsViewProps {
   onBack: () => void;
 }
 
+interface ProcessedLyricLine {
+  time_ms: number;
+  text: string;
+  romanized: string | null;
+}
+
 export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   media,
   lyricsData,
@@ -22,7 +28,10 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   onPlayPause,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const activeLineRef = useRef<HTMLDivElement>(null);
+  const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const isUserScrollingRef = useRef(false);
+  const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [showRomanized, setShowRomanized] = useState(true);
 
   // Storage key for per-track manual offset compensation
@@ -68,36 +77,85 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
     } catch {}
   };
 
-  // Base subtle anticipation (250ms) + per-track manual compensation
+  // Precompute transliteration once per track to eliminate runtime CPU overhead
+  const processedLines = useMemo<ProcessedLyricLine[]>(() => {
+    if (!lyricsData?.parsed_lines || lyricsData.parsed_lines.length === 0) {
+      return [];
+    }
+    return lyricsData.parsed_lines.map((line) => {
+      const isNonLatin = hasNonLatinScript(line.text);
+      return {
+        time_ms: line.time_ms,
+        text: line.text,
+        romanized: isNonLatin ? transliterateText(line.text) : null,
+      };
+    });
+  }, [lyricsData]);
+
+  // Subtle anticipation (250ms) + user offset
   const BASE_LEAD_MS = 250;
 
-  // Find index of the currently active line
+  // Active line index lookup
   const activeIndex = useMemo(() => {
-    if (!lyricsData || !lyricsData.parsed_lines || lyricsData.parsed_lines.length === 0) {
-      return -1;
-    }
-    const lines = lyricsData.parsed_lines;
+    if (processedLines.length === 0) return -1;
     const effectiveTime = currentPositionMs + BASE_LEAD_MS + userOffsetMs;
     let idx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].time_ms <= effectiveTime) {
+    for (let i = 0; i < processedLines.length; i++) {
+      if (processedLines[i].time_ms <= effectiveTime) {
         idx = i;
       } else {
         break;
       }
     }
     return idx;
-  }, [lyricsData, currentPositionMs, userOffsetMs]);
+  }, [processedLines, currentPositionMs, userOffsetMs]);
 
-  // Smooth scroll active line to center
+  // Smooth centering scroll handler
+  const scrollToLine = useCallback((index: number) => {
+    if (index < 0) return;
+    const container = containerRef.current;
+    const lineEl = lineRefs.current[index];
+    if (!container || !lineEl) return;
+
+    const containerHeight = container.clientHeight;
+    const lineTop = lineEl.offsetTop;
+    const lineHeight = lineEl.clientHeight;
+    const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
+
+    container.scrollTo({
+      top: Math.max(0, targetScrollTop),
+      behavior: 'smooth',
+    });
+  }, []);
+
+  // Auto-scroll when activeIndex changes unless user is manually inspecting
   useEffect(() => {
-    if (activeLineRef.current) {
-      activeLineRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
+    if (!isUserScrollingRef.current && activeIndex >= 0) {
+      scrollToLine(activeIndex);
     }
-  }, [activeIndex]);
+  }, [activeIndex, scrollToLine]);
+
+  // Detect user manual scroll/wheel to pause auto-scrolling temporarily
+  const handleUserWheel = () => {
+    isUserScrollingRef.current = true;
+    if (userScrollTimeoutRef.current) {
+      clearTimeout(userScrollTimeoutRef.current);
+    }
+    userScrollTimeoutRef.current = setTimeout(() => {
+      isUserScrollingRef.current = false;
+      if (activeIndex >= 0) {
+        scrollToLine(activeIndex);
+      }
+    }, 2500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (userScrollTimeoutRef.current) {
+        clearTimeout(userScrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -173,15 +231,17 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
         </div>
       </div>
 
-      {/* Lyrics Content with bounded height, smooth mask gradients, and true center alignment */}
+      {/* Lyrics Content with bounded height, smooth mask gradients, and hardware-accelerated transitions */}
       <div
         ref={containerRef}
-        className="h-[150px] overflow-y-auto overflow-x-hidden space-y-3 py-16 text-center select-none"
+        onWheel={handleUserWheel}
+        onTouchMove={handleUserWheel}
+        className="h-[150px] overflow-y-auto overflow-x-hidden space-y-2.5 py-20 text-center select-none"
         style={{
           maskImage:
-            'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+            'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
           WebkitMaskImage:
-            'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+            'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
         }}
       >
         {isLoading ? (
@@ -189,7 +249,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
             <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
             <span className="text-neutral-400 font-medium">Fetching real-time lyrics...</span>
           </div>
-        ) : !lyricsData || lyricsData.parsed_lines.length === 0 ? (
+        ) : processedLines.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-neutral-400 text-xs px-4 gap-1">
             <Disc3 className="w-6 h-6 text-neutral-600 animate-spin" style={{ animationDuration: '6s' }} />
             <p className="font-semibold text-neutral-300 mt-1">No synchronized lyrics available</p>
@@ -198,31 +258,45 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
             </p>
           </div>
         ) : (
-          lyricsData.parsed_lines.map((line: LyricLine, index: number) => {
+          processedLines.map((line: ProcessedLyricLine, index: number) => {
             const isActive = index === activeIndex;
             const isNear = Math.abs(index - activeIndex) <= 1;
-            const isNonLatin = hasNonLatinScript(line.text);
-            const romanized = showRomanized && isNonLatin ? transliterateText(line.text) : null;
+            const romanized = showRomanized ? line.romanized : null;
 
             return (
               <div
                 key={`${line.time_ms}-${index}`}
-                ref={isActive ? activeLineRef : null}
+                ref={(el) => {
+                  lineRefs.current[index] = el;
+                }}
                 onClick={() => onSeek(line.time_ms)}
-                className={`cursor-pointer transition-all duration-300 px-3 py-1 rounded-xl flex flex-col items-center justify-center ${
-                  isActive
-                    ? 'text-cyan-300 font-bold text-sm bg-cyan-500/15 shadow-[0_0_12px_rgba(34,211,238,0.25)] drop-shadow-[0_0_6px_rgba(56,189,248,0.4)]'
+                style={{
+                  transform: isActive
+                    ? 'scale(1.06) translateZ(0)'
                     : isNear
-                    ? 'text-neutral-200 text-xs hover:text-white opacity-80'
-                    : 'text-neutral-500 text-[11px] hover:text-neutral-300 opacity-40'
+                    ? 'scale(0.98) translateZ(0)'
+                    : 'scale(0.93) translateZ(0)',
+                  opacity: isActive ? 1 : isNear ? 0.65 : 0.28,
+                  color: isActive ? '#38bdf8' : isNear ? '#f1f5f9' : '#94a3b8',
+                  backgroundColor: isActive ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
+                  borderColor: isActive ? 'rgba(56, 189, 248, 0.28)' : 'transparent',
+                  transition:
+                    'transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 260ms ease, color 260ms ease, background-color 260ms ease, border-color 260ms ease',
+                  willChange: 'transform, opacity',
+                }}
+                className={`cursor-pointer px-3 py-1.5 rounded-xl border flex flex-col items-center justify-center text-[13px] leading-snug ${
+                  isActive ? 'font-semibold' : 'font-normal'
                 }`}
               >
                 <span>{line.text}</span>
                 {romanized && (
                   <span
-                    className={`text-[10px] font-normal tracking-wide italic mt-0.5 transition-colors ${
-                      isActive ? 'text-sky-200/95 font-medium' : 'text-neutral-400/80'
-                    }`}
+                    style={{
+                      opacity: isActive ? 0.95 : 0.7,
+                      color: isActive ? '#bae6fd' : '#94a3b8',
+                      transition: 'color 260ms ease, opacity 260ms ease',
+                    }}
+                    className="text-[10px] font-normal tracking-wide italic mt-0.5"
                   >
                     {romanized}
                   </span>
@@ -253,8 +327,11 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
           title="Click to seek"
         >
           <div
-            className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all"
-            style={{ width: `${progressPercent}%` }}
+            className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full"
+            style={{
+              width: `${progressPercent}%`,
+              transition: 'width 100ms linear',
+            }}
           />
         </div>
         <span className="text-[10px] font-mono text-neutral-400 flex-shrink-0">

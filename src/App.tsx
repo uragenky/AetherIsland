@@ -53,12 +53,11 @@ export function App() {
         const incoming = event.payload;
         const sameTrack = incoming.title === prev.title && incoming.artist === prev.artist;
 
-        // If same track is actively playing, prevent oscillation resets to 0 or unprompted backward jumps
-        if (sameTrack && incoming.is_playing && prev.position_ms > 1000) {
-          if (
-            incoming.position_ms === 0 ||
-            (incoming.position_ms < prev.position_ms && prev.position_ms - incoming.position_ms < 3000)
-          ) {
+        // If same track is actively playing, gently blend drift and prevent micro-jitter rubberbanding
+        if (sameTrack && incoming.is_playing && prev.position_ms > 500) {
+          const drift = Math.abs(incoming.position_ms - prev.position_ms);
+          // If drift is small (< 850ms), preserve local smooth micro-clock to eliminate jitter
+          if (drift < 850 || incoming.position_ms === 0) {
             return {
               ...incoming,
               position_ms: prev.position_ms,
@@ -124,20 +123,25 @@ export function App() {
       });
   }, [media.title, media.artist, media.duration_ms]);
 
-  // Local micro-clock for smooth sub-second progress and auto-scrolling lyrics
+  // High-precision local micro-clock (100ms delta based on performance.now)
   useEffect(() => {
     if (!media.is_playing) return;
+    let lastTime = performance.now();
     const interval = setInterval(() => {
+      const now = performance.now();
+      const deltaMs = Math.round(now - lastTime);
+      lastTime = now;
+
       setMedia((prev) => {
         if (!prev.is_playing) return prev;
-        const nextPos = prev.position_ms + 250;
+        const nextPos = prev.position_ms + deltaMs;
         const maxPos = prev.duration_ms > 0 ? prev.duration_ms : Infinity;
         return {
           ...prev,
           position_ms: Math.min(nextPos, maxPos),
         };
       });
-    }, 250);
+    }, 100);
     return () => clearInterval(interval);
   }, [media.is_playing, media.duration_ms]);
 
