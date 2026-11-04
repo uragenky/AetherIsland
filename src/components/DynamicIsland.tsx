@@ -64,17 +64,24 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 }) => {
   const [mode, setMode] = useState<IslandMode>('compact');
   const [activeTab, setActiveTab] = useState<'media' | 'system'>('media');
-  const [isNotch, setIsNotch] = useState(true);
+  const [dockStatus, setDockStatus] = useState<'top' | 'bottom' | 'floating'>('top');
   const [showIdleStats, setShowIdleStats] = useState(false);
 
   // Listen to real-time window movement & edge snap state from Tauri backend
   useEffect(() => {
-    invoke<boolean>('get_is_notch')
-      .then((snapped) => setIsNotch(snapped))
-      .catch(() => setIsNotch(true));
+    invoke<string>('get_dock_status')
+      .then((status) => {
+        if (status === 'top' || status === 'bottom' || status === 'floating') {
+          setDockStatus(status);
+        }
+      })
+      .catch(() => setDockStatus('top'));
 
-    const unlistenSnap = listen<boolean>('edge-snap-status', (event) => {
-      setIsNotch(event.payload);
+    const unlistenSnap = listen<string>('edge-snap-status', (event) => {
+      const payload = event.payload;
+      if (payload === 'top' || payload === 'bottom' || payload === 'floating') {
+        setDockStatus(payload);
+      }
     });
 
     return () => {
@@ -145,8 +152,15 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const displayTrack = media.title ? `${media.title}${media.artist ? ` — ${media.artist}` : ''}` : 'No Track Playing';
   const romajiTrack = hasNonLatinScript(displayTrack) ? transliterateText(displayTrack) : null;
 
+  const isDockTop = dockStatus === 'top';
+  const isDockBottom = dockStatus === 'bottom';
+
   return (
-    <div className="fixed top-0 left-0 right-0 flex justify-center items-start select-none pointer-events-auto">
+    <div
+      className={`fixed inset-0 flex justify-center ${
+        isDockBottom ? 'items-end' : 'items-start'
+      } select-none pointer-events-auto`}
+    >
       <motion.div
         layout
         transition={{
@@ -157,22 +171,40 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         }}
         style={{
           backgroundColor: '#000000',
-          border: isNotch
-            ? 'none'
-            : '1px solid rgba(255, 255, 255, 0.15)',
-          borderBottom: isNotch ? '1px solid rgba(255, 255, 255, 0.15)' : undefined,
-          borderLeft: isNotch ? '1px solid rgba(255, 255, 255, 0.15)' : undefined,
-          borderRight: isNotch ? '1px solid rgba(255, 255, 255, 0.15)' : undefined,
-          borderTopLeftRadius: isNotch ? '0px' : mode === 'compact' ? '9999px' : '24px',
-          borderTopRightRadius: isNotch ? '0px' : mode === 'compact' ? '9999px' : '24px',
-          borderBottomLeftRadius: isNotch
+          borderTop: isDockTop ? 'none' : '1px solid rgba(255, 255, 255, 0.15)',
+          borderBottom: isDockBottom ? 'none' : '1px solid rgba(255, 255, 255, 0.15)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.15)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.15)',
+          borderTopLeftRadius: isDockTop
+            ? '0px'
+            : isDockBottom
+            ? mode === 'compact'
+              ? '20px'
+              : '24px'
+            : mode === 'compact'
+            ? '9999px'
+            : '24px',
+          borderTopRightRadius: isDockTop
+            ? '0px'
+            : isDockBottom
+            ? mode === 'compact'
+              ? '20px'
+              : '24px'
+            : mode === 'compact'
+            ? '9999px'
+            : '24px',
+          borderBottomLeftRadius: isDockBottom
+            ? '0px'
+            : isDockTop
             ? mode === 'compact'
               ? '20px'
               : '26px'
             : mode === 'compact'
             ? '9999px'
             : '24px',
-          borderBottomRightRadius: isNotch
+          borderBottomRightRadius: isDockBottom
+            ? '0px'
+            : isDockTop
             ? mode === 'compact'
               ? '20px'
               : '26px'
@@ -464,7 +496,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                       {media.title || 'AetherIsland'}
                     </span>
                     <span className="text-[10px] text-cyan-300/80 -mt-0.5 truncate" title={media.artist}>
-                      {media.artist || (isNotch ? 'Snapped Notch' : 'Floating Pill')}
+                      {media.artist || (isDockTop ? 'Top Notch' : isDockBottom ? 'Bottom Dock' : 'Floating Pill')}
                     </span>
                   </div>
                 </div>
