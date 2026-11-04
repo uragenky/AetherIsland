@@ -184,7 +184,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   return (
     <div className="flex flex-col w-full h-full text-white justify-between">
       {/* Sub-toolbar */}
-      <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-1 px-1">
+      <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-1 px-1 flex-shrink-0">
         <div className="flex items-center gap-1.5 text-xs font-medium text-cyan-400">
           <Sparkles className="w-3.5 h-3.5 animate-pulse" />
           <span className="tracking-wide text-[11px]">Live Synced Lyrics</span>
@@ -241,7 +241,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
         ref={containerRef}
         onWheel={handleUserWheel}
         onTouchMove={handleUserWheel}
-        className="h-[150px] overflow-y-auto overflow-x-hidden space-y-2.5 py-20 text-center select-none"
+        className="h-[142px] overflow-y-auto overflow-x-hidden space-y-2 py-16 text-center select-none"
         style={{
           maskImage:
             'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
@@ -313,7 +313,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
       </div>
 
       {/* Bottom Mini Progress Scrubber */}
-      <div className="pt-2 border-t border-white/10 flex items-center gap-2 px-1 text-white select-none">
+      <div className="pt-2 border-t border-white/10 flex items-center gap-2 px-1 text-white select-none flex-shrink-0">
         {onPlayPause && (
           <button
             onClick={onPlayPause}

@@ -105,7 +105,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             await invoke('set_island_window_size', { width: 92.0, height: 42.0, yOffset: 0.0 });
           }
         } else {
-          await invoke('set_island_window_size', { width: 440.0, height: 285.0, yOffset: 0.0 });
+          await invoke('set_island_window_size', { width: 440.0, height: 292.0, yOffset: 0.0 });
         }
       } catch {
         // Ignored in non-windowed environments
@@ -180,7 +180,15 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   return (
     <div
       className={`fixed inset-0 flex justify-center ${
-        isDockBottom ? 'items-end' : isDockTop ? 'items-start' : 'items-center'
+        isDockBottom
+          ? mode === 'compact'
+            ? 'items-end'
+            : 'items-end pb-1.5'
+          : isDockTop
+          ? mode === 'compact'
+            ? 'items-start'
+            : 'items-start pt-1.5'
+          : 'items-center'
       } select-none pointer-events-auto`}
     >
       <motion.div
@@ -193,46 +201,14 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         }}
         style={{
           backgroundColor: '#000000',
-          borderTop: isDockTop ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
-          borderBottom: isDockBottom ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
+          borderTop: mode === 'compact' && isDockTop ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
+          borderBottom: mode === 'compact' && isDockBottom ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
           borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
           borderRight: '1px solid rgba(255, 255, 255, 0.35)',
-          borderTopLeftRadius: isDockTop
-            ? '0px'
-            : isDockBottom
-            ? mode === 'compact'
-              ? '20px'
-              : '26px'
-            : mode === 'compact'
-            ? '9999px'
-            : '24px',
-          borderTopRightRadius: isDockTop
-            ? '0px'
-            : isDockBottom
-            ? mode === 'compact'
-              ? '20px'
-              : '26px'
-            : mode === 'compact'
-            ? '9999px'
-            : '24px',
-          borderBottomLeftRadius: isDockBottom
-            ? '0px'
-            : isDockTop
-            ? mode === 'compact'
-              ? '20px'
-              : '26px'
-            : mode === 'compact'
-            ? '9999px'
-            : '24px',
-          borderBottomRightRadius: isDockBottom
-            ? '0px'
-            : isDockTop
-            ? mode === 'compact'
-              ? '20px'
-              : '26px'
-            : mode === 'compact'
-            ? '9999px'
-            : '24px',
+          borderTopLeftRadius: mode === 'compact' ? (isDockTop ? '0px' : isDockBottom ? '20px' : '9999px') : '24px',
+          borderTopRightRadius: mode === 'compact' ? (isDockTop ? '0px' : isDockBottom ? '20px' : '9999px') : '24px',
+          borderBottomLeftRadius: mode === 'compact' ? (isDockBottom ? '0px' : isDockTop ? '20px' : '9999px') : '24px',
+          borderBottomRightRadius: mode === 'compact' ? (isDockBottom ? '0px' : isDockTop ? '20px' : '9999px') : '24px',
           boxShadow: 'none',
         }}
         className={`relative bg-black transition-all duration-300 ${
@@ -244,7 +220,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 ? 'px-3 py-1 flex items-center justify-between w-[385px] h-[38px]'
                 : 'px-3 py-1 flex items-center justify-between w-[340px] h-[38px]'
               : 'px-2 py-1 flex items-center justify-center w-[84px] h-[36px]'
-            : 'p-4 w-[430px] min-h-[270px] flex flex-col justify-between'
+            : 'p-3.5 w-[430px] h-[276px] flex flex-col justify-between'
         }`}
       >
         {/* COMPACT MODE */}
@@ -496,7 +472,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.18 }}
-              className="flex flex-col w-full h-full"
+              className={`flex ${isDockBottom ? 'flex-col-reverse' : 'flex-col'} w-full h-full justify-between`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Unified Header: Eyes Companion & Song Title/Artist (Draggable) */}
@@ -504,7 +480,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
-                className="flex items-center justify-between pb-2 border-b border-white/10 mb-2 cursor-grab active:cursor-grabbing flex-shrink-0"
+                className={`flex items-center justify-between ${
+                  isDockBottom ? 'pt-2 border-t mt-1.5' : 'pb-2 border-b mb-1.5'
+                } border-white/10 cursor-grab active:cursor-grabbing flex-shrink-0`}
                 title="Drag header to move"
               >
                 <div className="flex items-center gap-2 select-none pointer-events-none min-w-0">
