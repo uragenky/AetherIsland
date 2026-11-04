@@ -51,19 +51,20 @@ export function App() {
     const unlistenMedia = listen<MediaSessionInfo>('media-status', (event) => {
       setMedia((prev) => {
         const incoming = event.payload;
-        // Prevent spurious resets to 0 if the same track is playing and position already advanced
-        if (
-          incoming.title === prev.title &&
-          incoming.artist === prev.artist &&
-          incoming.is_playing &&
-          incoming.position_ms === 0 &&
-          prev.position_ms > 1500
-        ) {
-          return {
-            ...incoming,
-            position_ms: prev.position_ms,
-            duration_ms: incoming.duration_ms > 0 ? incoming.duration_ms : prev.duration_ms,
-          };
+        const sameTrack = incoming.title === prev.title && incoming.artist === prev.artist;
+
+        // If same track is actively playing, prevent oscillation resets to 0 or unprompted backward jumps
+        if (sameTrack && incoming.is_playing && prev.position_ms > 1000) {
+          if (
+            incoming.position_ms === 0 ||
+            (incoming.position_ms < prev.position_ms && prev.position_ms - incoming.position_ms < 3000)
+          ) {
+            return {
+              ...incoming,
+              position_ms: prev.position_ms,
+              duration_ms: incoming.duration_ms > 0 ? incoming.duration_ms : prev.duration_ms,
+            };
+          }
         }
         return {
           ...incoming,

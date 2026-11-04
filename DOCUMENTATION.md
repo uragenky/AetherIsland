@@ -144,14 +144,15 @@
   - Endpoint: `https://lrclib.net/api/get?track_name={title}&artist_name={artist}&duration={duration}`
   - Response parses both plain lyrics (`lyrics`) and timestamped synced lyrics (`syncedLyrics`).
   - Automatic duration fallback: Parses `duration` directly from LRCLIB response, with secondary fallback deriving from the final lyric timestamp + 15s when SMTC reports 0 duration (e.g., YouTube web in Chromium).
-- **Lead-In Anticipation Offset**:
-  - Implements a `350ms` forward offset (`currentPositionMs + 350`) in active karaoke line detection so that lyrics transition and scroll smoothly ahead of vocal onset, providing adequate reading and breathing preparation.
+- **Lead-In Anticipation Offset & Dead-Center Alignment**:
+  - Implements a `550ms` forward anticipation offset (`currentPositionMs + 550`) in active karaoke line detection so that lyrics transition smoothly ahead of vocal onset, providing optimal reading preparation.
+  - Utilizes mathematical `scrollTo` centering (`activeEl.offsetTop - container.clientHeight / 2 + activeEl.clientHeight / 2`) and vertical `py-12` padding so that the active singing line remains exactly dead-center in the karaoke viewport.
 - **Multi-Script Transliteration Engine**:
   - **Japanese**: Comprehensive Hepburn Romaji engine combining curated lyric vocabulary overrides with a complete dataset of over 3,100 Joyo and Jinmeiyo Kanji (`src/utils/kanjiMap.json`), converting virtually all Japanese song lyrics to Romaji.
   - **Korean**: Algorithmic syllable decomposition based on Revised Romanization of Korean (RR), mapping Choseong, Jungseong, and Jongseong without dictionary bloat.
   - **Cyrillic**: Transliteration for Russian and Ukrainian alphabets.
   - **Arabic**: Phonetic Latin transliteration.
-  - Dual-line display in `SyncedLyricsView` with toggleable **Latin** button in header.
+  - Dual-line display in `SyncedLyricsView` with toggleable **Latin** button in header, plus integrated mini progress scrubber and track title & artist header.
 
 ---
 

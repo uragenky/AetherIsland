@@ -31,12 +31,14 @@ impl Default for MediaSessionInfo {
 
 pub struct MediaManager {
     current: Mutex<MediaSessionInfo>,
+    last_native_pos: Mutex<Option<u64>>,
 }
 
 impl MediaManager {
     pub fn new() -> Self {
         Self {
             current: Mutex::new(MediaSessionInfo::default()),
+            last_native_pos: Mutex::new(None),
         }
     }
 
@@ -106,6 +108,7 @@ impl MediaManager {
         } else {
             position_ms
         };
+        *self.last_native_pos.lock().unwrap() = Some(curr.position_ms);
         curr.clone()
     }
 
@@ -113,7 +116,8 @@ impl MediaManager {
         let mut curr = self.current.lock().unwrap();
         let track_changed = curr.title != info.title || curr.artist != info.artist;
         if track_changed {
-            *curr = info;
+            *curr = info.clone();
+            *self.last_native_pos.lock().unwrap() = Some(info.position_ms);
             return;
         }
 
@@ -123,10 +127,20 @@ impl MediaManager {
             curr.duration_ms = info.duration_ms;
         }
 
-        // Only accept native position if it significantly changed (user seeked > 2500ms)
-        let diff = (info.position_ms as i64 - curr.position_ms as i64).abs();
-        if diff > 2500 && info.position_ms > 0 {
-            curr.position_ms = info.position_ms;
+        let mut last_native = self.last_native_pos.lock().unwrap();
+        let native_changed = match *last_native {
+            Some(prev) => prev != info.position_ms,
+            None => true,
+        };
+
+        if native_changed {
+            *last_native = Some(info.position_ms);
+            // Only accept native position if it significantly jumped (> 3000ms seek)
+            // and prevent resetting to 0 while playback is active
+            let diff = (info.position_ms as i64 - curr.position_ms as i64).abs();
+            if diff > 3000 && (info.position_ms > 0 || !curr.is_playing) {
+                curr.position_ms = info.position_ms;
+            }
         }
     }
 }
