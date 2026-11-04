@@ -138,7 +138,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       const dist = Math.hypot(e.screenX - dragStartRef.current.x, e.screenY - dragStartRef.current.y);
       if (dist > 5) {
         dragStartRef.current.isDown = false;
-        invoke('start_window_drag').catch(() => {});
+        invoke('start_window_drag')
+          .then(() => {
+            invoke('snap_island').catch(() => {});
+          })
+          .catch(() => {});
       }
     }
   };

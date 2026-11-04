@@ -55,54 +55,22 @@ async fn get_lyrics(
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct WorkArea {
+pub struct ScreenBounds {
     pub left: f64,
     pub top: f64,
     pub right: f64,
     pub bottom: f64,
 }
 
-const SNAP_THRESHOLD_Y: f64 = 38.0;
-const SNAP_THRESHOLD_X: f64 = 38.0;
+// Generous magnetic snap attraction threshold (in logical pixels)
+const SNAP_THRESHOLD_TOP: f64 = 65.0;
+const SNAP_THRESHOLD_BOTTOM: f64 = 65.0;
+const SNAP_THRESHOLD_SIDES: f64 = 60.0;
 const SCREEN_MARGIN_X: f64 = 16.0;
 
-#[cfg(target_os = "windows")]
-fn get_windows_work_area(pos_x: i32, pos_y: i32, scale_factor: f64) -> Option<WorkArea> {
-    use windows::Win32::Foundation::POINT;
-    use windows::Win32::Graphics::Gdi::{
-        GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST,
-    };
-
-    unsafe {
-        let pt = POINT { x: pos_x, y: pos_y };
-        let h_mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-        let mut mi = MONITORINFO {
-            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
-            ..Default::default()
-        };
-        if GetMonitorInfoW(h_mon, &mut mi).as_bool() {
-            return Some(WorkArea {
-                left: mi.rcWork.left as f64 / scale_factor,
-                top: mi.rcWork.top as f64 / scale_factor,
-                right: mi.rcWork.right as f64 / scale_factor,
-                bottom: mi.rcWork.bottom as f64 / scale_factor,
-            });
-        }
-    }
-    None
-}
-
-fn get_monitor_work_area(window: &Window) -> Option<WorkArea> {
+fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
     let monitor = window.current_monitor().ok().flatten()?;
     let scale_factor = monitor.scale_factor();
-
-    #[cfg(target_os = "windows")]
-    {
-        let pos = window.outer_position().unwrap_or_default();
-        if let Some(wa) = get_windows_work_area(pos.x, pos.y, scale_factor) {
-            return Some(wa);
-        }
-    }
 
     let mon_pos = monitor.position();
     let mon_size = monitor.size();
@@ -111,7 +79,7 @@ fn get_monitor_work_area(window: &Window) -> Option<WorkArea> {
     let width = mon_size.width as f64 / scale_factor;
     let height = mon_size.height as f64 / scale_factor;
 
-    Some(WorkArea {
+    Some(ScreenBounds {
         left,
         top,
         right: left + width,
@@ -136,8 +104,8 @@ fn snap_window_to_edges(window: &Window) -> String {
         Err(_) => return "floating".to_string(),
     };
 
-    let work_area = match get_monitor_work_area(window) {
-        Some(wa) => wa,
+    let screen = match get_monitor_screen_bounds(window) {
+        Some(s) => s,
         None => return "floating".to_string(),
     };
 
@@ -146,38 +114,42 @@ fn snap_window_to_edges(window: &Window) -> String {
     let cur_w = current_size.width as f64 / scale_factor;
     let cur_h = current_size.height as f64 / scale_factor;
 
-    let work_w = work_area.right - work_area.left;
+    let screen_w = screen.right - screen.left;
 
-    // 1. Vertical snapping
-    let dist_top = cur_y - work_area.top;
-    let dist_bottom = work_area.bottom - (cur_y + cur_h);
+    // 1. Vertical snapping:
+    // Distance from top: negative if dragged above screen, positive if below top edge
+    let dist_from_top = cur_y - screen.top;
+    // Distance from bottom: negative if dragged below screen, positive if above bottom edge
+    let dist_from_bottom = screen.bottom - (cur_y + cur_h);
 
-    let (snapped_y, dock_status) = if dist_top.abs() <= SNAP_THRESHOLD_Y {
-        (work_area.top, "top")
-    } else if dist_bottom.abs() <= SNAP_THRESHOLD_Y {
-        (work_area.bottom - cur_h, "bottom")
+    let (snapped_y, dock_status) = if dist_from_top <= SNAP_THRESHOLD_TOP {
+        // Snap flush to top edge (works even if user dragged into negative coordinates)
+        (screen.top, "top")
+    } else if dist_from_bottom <= SNAP_THRESHOLD_BOTTOM {
+        // Snap flush to bottom of screen in front of taskbar
+        (screen.bottom - cur_h, "bottom")
     } else {
         (cur_y, "floating")
     };
 
     // 2. Horizontal magnetic snapping
-    let dist_left = cur_x - work_area.left;
-    let dist_right = work_area.right - (cur_x + cur_w);
-    let center_x = work_area.left + (work_w - cur_w) / 2.0;
-    let dist_center = cur_x - center_x;
+    let dist_from_left = cur_x - screen.left;
+    let dist_from_right = screen.right - (cur_x + cur_w);
+    let center_x = screen.left + (screen_w - cur_w) / 2.0;
+    let dist_from_center = (cur_x - center_x).abs();
 
-    let snapped_x = if dist_left.abs() <= SNAP_THRESHOLD_X {
-        // Magnetic pull to left margin
-        work_area.left + SCREEN_MARGIN_X
-    } else if dist_right.abs() <= SNAP_THRESHOLD_X {
-        // Magnetic pull to right margin
-        work_area.right - cur_w - SCREEN_MARGIN_X
-    } else if dist_center.abs() <= 35.0 {
+    let snapped_x = if dist_from_left <= SNAP_THRESHOLD_SIDES {
+        // Magnetic pull to left margin (16px)
+        screen.left + SCREEN_MARGIN_X
+    } else if dist_from_right <= SNAP_THRESHOLD_SIDES {
+        // Magnetic pull to right margin (16px)
+        screen.right - cur_w - SCREEN_MARGIN_X
+    } else if dist_from_center <= 45.0 {
         // Magnetic pull to exact horizontal center
         center_x
     } else {
-        // Clamp within work area
-        cur_x.max(work_area.left).min(work_area.right - cur_w)
+        // Clamp within screen boundaries
+        cur_x.max(screen.left).min(screen.right - cur_w)
     };
 
     let _ = window.set_position(tauri::LogicalPosition::new(snapped_x, snapped_y));
@@ -187,16 +159,22 @@ fn snap_window_to_edges(window: &Window) -> String {
 }
 
 #[tauri::command]
-fn start_window_drag(window: Window) -> Result<(), String> {
+async fn start_window_drag(window: Window) -> Result<(), String> {
     window.start_dragging().map_err(|e| e.to_string())?;
-    // Once user drops the window, physically snap to closest edge
+    // Brief async yield to allow OS window manager to commit final drop coordinates
+    tokio::time::sleep(std::time::Duration::from_millis(35)).await;
     snap_window_to_edges(&window);
     Ok(())
 }
 
 #[tauri::command]
+fn snap_island(window: Window) -> Result<String, String> {
+    Ok(snap_window_to_edges(&window))
+}
+
+#[tauri::command]
 fn get_dock_status(window: Window) -> Result<String, String> {
-    if let Some(wa) = get_monitor_work_area(&window) {
+    if let Some(screen) = get_monitor_screen_bounds(&window) {
         if let Ok(pos) = window.outer_position() {
             let scale_factor = window
                 .current_monitor()
@@ -210,9 +188,9 @@ fn get_dock_status(window: Window) -> Result<String, String> {
                 .map(|s| s.height as f64 / scale_factor)
                 .unwrap_or(38.0);
 
-            if (logical_y - wa.top).abs() <= SNAP_THRESHOLD_Y {
+            if (logical_y - screen.top) <= SNAP_THRESHOLD_TOP {
                 return Ok("top".to_string());
-            } else if (wa.bottom - (logical_y + logical_h)).abs() <= SNAP_THRESHOLD_Y {
+            } else if (screen.bottom - (logical_y + logical_h)) <= SNAP_THRESHOLD_BOTTOM {
                 return Ok("bottom".to_string());
             } else {
                 return Ok("floating".to_string());
@@ -249,47 +227,48 @@ fn set_island_window_size(
     let old_w = current_size.width as f64 / scale_factor;
     let old_h = current_size.height as f64 / scale_factor;
 
-    let work_area = get_monitor_work_area(&window).unwrap_or(WorkArea {
+    let screen = get_monitor_screen_bounds(&window).unwrap_or(ScreenBounds {
         left: 0.0,
         top: 0.0,
         right: 1920.0,
         bottom: 1080.0,
     });
-    let work_w = work_area.right - work_area.left;
+    let screen_w = screen.right - screen.left;
 
-    let is_docked_top = (cur_y - work_area.top).abs() <= 12.0;
-    let is_docked_bottom = (work_area.bottom - (cur_y + old_h)).abs() <= 12.0;
+    let is_docked_top = (cur_y - screen.top).abs() <= 18.0;
+    let is_docked_bottom = (screen.bottom - (cur_y + old_h)).abs() <= 18.0;
 
     // Vertical positioning:
     let new_y = if is_docked_top {
-        // Top edge remains pinned flush
-        work_area.top
+        // Top edge remains pinned flush to top of the screen
+        screen.top
     } else if is_docked_bottom {
-        // Bottom edge remains pinned flush: expand upwards
-        work_area.bottom - height
+        // Bottom edge remains pinned flush to bottom of screen in front of taskbar:
+        // Grows upward into screen view
+        screen.bottom - height
     } else {
         // Floating: expand symmetrically from vertical center
         (cur_y + (old_h - height) / 2.0)
-            .max(work_area.top)
-            .min(work_area.bottom - height)
+            .max(screen.top)
+            .min(screen.bottom - height)
     };
 
     // Horizontal positioning:
-    let is_pinned_left = (cur_x - (work_area.left + SCREEN_MARGIN_X)).abs() <= 20.0;
-    let is_pinned_right = (work_area.right - (cur_x + old_w) - SCREEN_MARGIN_X).abs() <= 20.0;
-    let old_center_x = work_area.left + (work_w - old_w) / 2.0;
-    let is_centered = (cur_x - old_center_x).abs() <= 25.0;
+    let is_pinned_left = (cur_x - (screen.left + SCREEN_MARGIN_X)).abs() <= 25.0;
+    let is_pinned_right = (screen.right - (cur_x + old_w) - SCREEN_MARGIN_X).abs() <= 25.0;
+    let old_center_x = screen.left + (screen_w - old_w) / 2.0;
+    let is_centered = (cur_x - old_center_x).abs() <= 30.0;
 
     let new_x = if is_pinned_left {
-        work_area.left + SCREEN_MARGIN_X
+        screen.left + SCREEN_MARGIN_X
     } else if is_pinned_right {
-        work_area.right - width - SCREEN_MARGIN_X
+        screen.right - width - SCREEN_MARGIN_X
     } else if is_centered {
-        work_area.left + (work_w - width) / 2.0
+        screen.left + (screen_w - width) / 2.0
     } else {
         (cur_x + (old_w - width) / 2.0)
-            .max(work_area.left)
-            .min(work_area.right - width)
+            .max(screen.left)
+            .min(screen.right - width)
     };
 
     let size = tauri::LogicalSize::new(width, height);
@@ -331,9 +310,9 @@ pub fn run() {
                     .map(|s| s.height as f64 / scale_factor)
                     .unwrap_or(38.0);
 
-                if let Some(wa) = get_monitor_work_area(window) {
-                    let is_top = (logical_y - wa.top).abs() <= SNAP_THRESHOLD_Y;
-                    let is_bottom = (wa.bottom - (logical_y + logical_h)).abs() <= SNAP_THRESHOLD_Y;
+                if let Some(screen) = get_monitor_screen_bounds(window) {
+                    let is_top = (logical_y - screen.top) <= SNAP_THRESHOLD_TOP;
+                    let is_bottom = (screen.bottom - (logical_y + logical_h)) <= SNAP_THRESHOLD_BOTTOM;
                     let status = if is_top {
                         "top"
                     } else if is_bottom {
@@ -375,6 +354,7 @@ pub fn run() {
             get_lyrics,
             set_island_window_size,
             start_window_drag,
+            snap_island,
             get_is_notch,
             get_dock_status,
         ])
