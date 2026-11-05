@@ -98,23 +98,23 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     let contentWidth = 0;
     let count = 0;
     if (visibleStats.cpu) {
-      contentWidth += 44;
+      contentWidth += 38;
       count++;
     }
     if (visibleStats.ram) {
-      contentWidth += 44;
+      contentWidth += 38;
       count++;
     }
     if (visibleStats.gpu) {
-      contentWidth += 44;
+      contentWidth += 38;
       count++;
     }
     if (visibleStats.battery && hasBattery) {
-      contentWidth += 46;
+      contentWidth += 40;
       count++;
     }
     if (visibleStats.net) {
-      contentWidth += 92; // 44 down + 44 up + 4 gap
+      contentWidth += 80; // 38 down + 38 up + 4 gap
       count++;
     }
 
@@ -122,9 +122,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       return 84;
     }
 
-    // Eyes (~32px) + padding (~24px) + inner gap (~16px) = 72px
-    const gapWidth = Math.max(0, count - 1) * 10;
-    return Math.max(120, 72 + contentWidth + gapWidth);
+    // Eyes (~30px) + padding (~24px) + Separation between eyes and stats (16px) = 70px
+    const gapWidth = Math.max(0, count - 1) * 8;
+    return Math.max(120, 70 + contentWidth + gapWidth);
   }, [visibleStats, hasBattery]);
 
   // Listen to real-time window movement & edge snap state from Tauri backend
@@ -428,12 +428,12 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           ) : showIdleStats ? (
             /* IDLE STATS MODE: EYES (DOUBLE-CLICK TO HIDE) + ICON-ONLY STATS (DOUBLE-CLICK FOR DASHBOARD) */
             <div
-              className="flex items-center justify-between w-full h-full gap-2 px-1"
-              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
+              className="flex items-center w-full h-full px-0.5"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', height: '100%' }}
             >
               {/* Eyes Companion (Left - double-click to collapse stats) */}
               <div
-                className="flex items-center gap-1 flex-shrink-0 cursor-pointer"
+                className="flex items-center flex-shrink-0 cursor-pointer mr-3.5"
                 style={{ display: 'inline-flex', alignItems: 'center' }}
                 title="Double-click eye to hide stats, click to wink"
               >
@@ -455,12 +455,12 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   e.stopPropagation();
                   toggleExpand();
                 }}
-                className="flex-1 min-w-0 flex items-center justify-center gap-2.5 text-[10px] font-mono text-neutral-300 select-none cursor-grab active:cursor-grabbing px-1"
+                className="flex-1 min-w-0 flex items-center justify-center gap-2 text-[10px] font-mono text-neutral-300 select-none cursor-grab active:cursor-grabbing"
                 title="Double-click for full dashboard, right-click to choose metrics or quit"
               >
                 {/* CPU */}
                 {visibleStats.cpu && (
-                  <div className="flex items-center gap-1 w-[44px] flex-shrink-0" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
+                  <div className="flex items-center gap-0.5 w-[38px] flex-shrink-0" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
                     <Cpu className="w-3 h-3 text-emerald-400 flex-shrink-0" />
                     <span className={`tabular-nums text-left ${metrics.cpu_usage > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                       {metrics.cpu_usage.toFixed(0)}%
@@ -470,7 +470,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
                 {/* RAM */}
                 {visibleStats.ram && (
-                  <div className="flex items-center gap-1 w-[44px] flex-shrink-0" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
+                  <div className="flex items-center gap-0.5 w-[38px] flex-shrink-0" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
                     <MemoryStick className="w-3 h-3 text-sky-400 flex-shrink-0" />
                     <span className={`tabular-nums text-left ${metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                       {metrics.ram_percentage.toFixed(0)}%
@@ -480,7 +480,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
                 {/* GPU */}
                 {visibleStats.gpu && (
-                  <div className="flex items-center gap-1 w-[44px] flex-shrink-0" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
+                  <div className="flex items-center gap-0.5 w-[38px] flex-shrink-0" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
                     <Gpu className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                     <span className={`tabular-nums text-left ${(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                       {(metrics.gpu_usage ?? 0).toFixed(0)}%
@@ -491,7 +491,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 {/* Battery Indicator (if present) */}
                 {visibleStats.battery && hasBattery && (
                   <div
-                    className="flex items-center gap-1 w-[46px] flex-shrink-0"
+                    className="flex items-center gap-0.5 w-[40px] flex-shrink-0"
                     title={metrics.is_charging ? `Charging: ${metrics.battery_percentage}%` : `Battery: ${metrics.battery_percentage}%`}
                   >
                     {metrics.is_charging ? (
@@ -512,11 +512,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 {/* Bandwidth Download & Upload */}
                 {visibleStats.net && (
                   <div className="flex items-center gap-1 font-semibold flex-shrink-0">
-                    <span className="flex items-center gap-0.5 text-emerald-300 w-[44px] flex-shrink-0" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
+                    <span className="flex items-center gap-0.5 text-emerald-300 w-[38px] flex-shrink-0" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
                       <ArrowDown className="w-2.5 h-2.5 flex-shrink-0" />
                       <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_download_kbps)}</span>
                     </span>
-                    <span className="flex items-center gap-0.5 text-sky-300 w-[44px] flex-shrink-0" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
+                    <span className="flex items-center gap-0.5 text-sky-300 w-[38px] flex-shrink-0" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
                       <ArrowUp className="w-2.5 h-2.5 flex-shrink-0" />
                       <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_upload_kbps)}</span>
                     </span>
