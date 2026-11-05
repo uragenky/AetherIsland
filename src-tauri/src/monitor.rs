@@ -151,10 +151,10 @@ impl MonitorState {
 }
 
 pub fn start_monitor_thread(app_handle: AppHandle, state: Arc<MonitorState>) {
-    // Dedicated Win32 guard loop (250ms) to ensure island stays above Windows taskbar without closing Start Menu
+    // Dedicated Win32 guard loop (150ms) to ensure island stays above Windows taskbar without closing Start Menu
     let app_topmost = app_handle.clone();
     tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(150));
         loop {
             interval.tick().await;
             if let Some(win) = app_topmost.get_webview_window("main") {

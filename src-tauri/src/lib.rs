@@ -114,38 +114,28 @@ pub static IS_POPUP_MENU_OPEN: std::sync::atomic::AtomicBool =
 
 #[cfg(target_os = "windows")]
 unsafe fn is_start_menu_or_flyout_open() -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{
-        FindWindowW, GetClassNameW, GetForegroundWindow, IsWindowVisible,
-    };
-    use windows::core::{w, PCWSTR};
+    use windows::Win32::UI::WindowsAndMessaging::{GetClassNameW, GetForegroundWindow};
 
-    // 1. Check if the active foreground window belongs to Start Menu or Windows Shell flyouts
+    // Check if the active foreground window belongs to Start Menu or Windows Shell light-dismiss flyouts.
+    // In Windows, light-dismiss windows (Start Menu, Action Center, Quick Settings) only exist
+    // while they are in the active foreground. When closed, background CoreWindows remain created
+    // and reported as WS_VISIBLE by Win32, so we strictly check GetForegroundWindow to prevent
+    // false positives that permanently block the taskbar guard.
     let fg = GetForegroundWindow();
-    if !fg.0.is_null() {
-        let mut class_buf = [0u16; 64];
-        let len = GetClassNameW(fg, &mut class_buf) as usize;
-        if len > 0 {
-            let class_name = String::from_utf16_lossy(&class_buf[..len]);
-            if class_name.contains("Windows.UI.Core.CoreWindow")
-                || class_name.contains("StartMenuExperienceHost")
-                || class_name.contains("XamlExplorerHostIslandWindow")
-                || class_name.contains("Shell_LightDismissOverlay")
-            {
-                return true;
-            }
-        }
+    if fg.0.is_null() {
+        return false;
     }
 
-    // 2. Check if the Windows Shell light-dismiss overlay is active
-    if let Ok(overlay) = FindWindowW(w!("Shell_LightDismissOverlay"), PCWSTR::null()) {
-        if !overlay.0.is_null() && IsWindowVisible(overlay).as_bool() {
-            return true;
-        }
-    }
-
-    // 3. Check if Start Menu CoreWindow is visible
-    if let Ok(start) = FindWindowW(w!("Windows.UI.Core.CoreWindow"), w!("Start")) {
-        if !start.0.is_null() && IsWindowVisible(start).as_bool() {
+    let mut class_buf = [0u16; 64];
+    let len = GetClassNameW(fg, &mut class_buf) as usize;
+    if len > 0 {
+        let class_name = String::from_utf16_lossy(&class_buf[..len]);
+        if class_name.contains("Windows.UI.Core.CoreWindow")
+            || class_name.contains("StartMenuExperienceHost")
+            || class_name.contains("XamlExplorerHostIslandWindow")
+            || class_name.contains("Shell_LightDismissOverlay")
+            || class_name.contains("TopLevelWindowForOverflowXamlIsland")
+        {
             return true;
         }
     }
@@ -156,24 +146,35 @@ unsafe fn is_start_menu_or_flyout_open() -> bool {
 #[cfg(target_os = "windows")]
 unsafe fn is_island_covered_by_taskbar(island_hwnd: windows::Win32::Foundation::HWND) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetClassNameW, GetWindow, IsWindowVisible, GW_HWNDPREV,
+        FindWindowW, GetClassNameW, GetWindow, IsWindowVisible, GW_HWNDPREV,
     };
+    use windows::core::{w, PCWSTR};
+
+    let tray = FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()).unwrap_or_default();
+    let sec_tray = FindWindowW(w!("Shell_SecondaryTrayWnd"), PCWSTR::null()).unwrap_or_default();
 
     let mut curr = island_hwnd;
     let mut depth = 0;
-    while depth < 50 {
+    while depth < 250 {
         depth += 1;
         match GetWindow(curr, GW_HWNDPREV) {
             Ok(above) => {
                 if above.0.is_null() {
                     break;
                 }
+                if (!tray.0.is_null() && above == tray)
+                    || (!sec_tray.0.is_null() && above == sec_tray)
+                {
+                    return true;
+                }
                 if IsWindowVisible(above).as_bool() {
                     let mut class_buf = [0u16; 64];
                     let len = GetClassNameW(above, &mut class_buf) as usize;
                     if len > 0 {
                         let class_name = String::from_utf16_lossy(&class_buf[..len]);
-                        if class_name == "Shell_TrayWnd" || class_name == "Shell_SecondaryTrayWnd" {
+                        if class_name.contains("Shell_TrayWnd")
+                            || class_name.contains("Shell_SecondaryTrayWnd")
+                        {
                             return true;
                         }
                     }
@@ -240,6 +241,7 @@ pub fn ensure_above_taskbar(window: &Window) {
             if let Ok(hwnd_ptr) = window.hwnd() {
                 let hwnd = HWND(hwnd_ptr.0);
                 if is_island_covered_by_taskbar(hwnd) {
+                    let _ = window.set_always_on_top(true);
                     let _ = SetWindowPos(
                         hwnd,
                         HWND_TOPMOST,
@@ -710,6 +712,7 @@ pub fn run() {
                 }
                 let _ = window.set_size(tauri::LogicalSize::new(initial_w, initial_h));
                 let _ = window.set_always_on_top(true);
+                ensure_always_on_top(&window.as_ref().window());
             }
 
             monitor::start_monitor_thread(handle.clone(), monitor);
