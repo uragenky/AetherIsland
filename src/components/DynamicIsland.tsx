@@ -288,6 +288,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
   const isDockTop = dockStatus === 'top';
   const isDockBottom = dockStatus === 'bottom';
+  const isFloating = !isDockTop && !isDockBottom;
 
   const [isHovered, setIsHovered] = useState(false);
 
@@ -301,8 +302,22 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       : 430;
   const pillHeight = mode === 'compact' ? 38 : 276;
 
-  // Seamless continuous silhouette path (Notch ears + capsule body without seams)
-  const { strokePath, fillPath } = useMemo(() => {
+  // Crisp outline color with interactive hover lift
+  const outlineColor = isMediaActive
+    ? isHovered
+      ? 'rgba(56, 189, 248, 0.90)'
+      : 'rgba(56, 189, 248, 0.50)'
+    : metrics.cpu_usage > 80
+    ? isHovered
+      ? 'rgba(251, 113, 133, 0.90)'
+      : 'rgba(251, 113, 133, 0.50)'
+    : isHovered
+    ? 'rgba(255, 255, 255, 0.65)'
+    : 'rgba(255, 255, 255, 0.28)';
+
+  // Continuous vector path for docked modes (ears + body silhouette)
+  const dockedPath = useMemo(() => {
+    if (isFloating) return '';
     const r = mode === 'compact' ? 19 : 24;
     const wingW = 14;
     const wingH = 10;
@@ -310,70 +325,34 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     const h = pillHeight;
 
     if (isDockTop) {
-      const stroke = [
+      // Inset stroke by 0.5px so it remains 100% inside window bounds
+      return [
         `M ${-wingW} 0`,
-        `C ${-wingW * 0.45} 0 0 ${wingH * 0.45} 0 ${wingH}`,
-        `L 0 ${h - r}`,
-        `A ${r} ${r} 0 0 0 ${r} ${h}`,
-        `L ${w - r} ${h}`,
-        `A ${r} ${r} 0 0 0 ${w} ${h - r}`,
-        `L ${w} ${wingH}`,
-        `C ${w} ${wingH * 0.45} ${w + wingW * 0.55} 0 ${w + wingW} 0`,
+        `C ${-wingW * 0.45} 0 0.5 ${wingH * 0.45} 0.5 ${wingH}`,
+        `L 0.5 ${h - r}`,
+        `A ${r - 0.5} ${r - 0.5} 0 0 0 ${r} ${h - 0.5}`,
+        `L ${w - r} ${h - 0.5}`,
+        `A ${r - 0.5} ${r - 0.5} 0 0 0 ${w - 0.5} ${h - r}`,
+        `L ${w - 0.5} ${wingH}`,
+        `C ${w - 0.5} ${wingH * 0.45} ${w + wingW * 0.55} 0 ${w + wingW} 0`,
       ].join(' ');
-      const fill = `${stroke} L ${w + wingW} 0 L ${-wingW} 0 Z`;
-      return { strokePath: stroke, fillPath: fill };
     }
 
     if (isDockBottom) {
-      const stroke = [
+      return [
         `M ${-wingW} ${h}`,
-        `C ${-wingW * 0.45} ${h} 0 ${h - wingH * 0.45} 0 ${h - wingH}`,
-        `L 0 ${r}`,
-        `A ${r} ${r} 0 0 1 ${r} 0`,
-        `L ${w - r} 0`,
-        `A ${r} ${r} 0 0 1 ${w} ${r}`,
-        `L ${w} ${h - wingH}`,
-        `C ${w} ${h - wingH * 0.45} ${w + wingW * 0.55} ${h} ${w + wingW} ${h}`,
+        `C ${-wingW * 0.45} ${h} 0.5 ${h - wingH * 0.45} 0.5 ${h - wingH}`,
+        `L 0.5 ${r}`,
+        `A ${r - 0.5} ${r - 0.5} 0 0 1 ${r} 0.5`,
+        `L ${w - r} 0.5`,
+        `A ${r - 0.5} ${r - 0.5} 0 0 1 ${w - 0.5} ${r}`,
+        `L ${w - 0.5} ${h - wingH}`,
+        `C ${w - 0.5} ${h - wingH * 0.45} ${w + wingW * 0.55} ${h} ${w + wingW} ${h}`,
       ].join(' ');
-      const fill = `${stroke} L ${w + wingW} ${h} L ${-wingW} ${h} Z`;
-      return { strokePath: stroke, fillPath: fill };
     }
 
-    // Floating Capsule / Squircle
-    const stroke = [
-      `M ${r} 0`,
-      `L ${w - r} 0`,
-      `A ${r} ${r} 0 0 1 ${w} ${r}`,
-      `L ${w} ${h - r}`,
-      `A ${r} ${r} 0 0 1 ${w - r} ${h}`,
-      `L ${r} ${h}`,
-      `A ${r} ${r} 0 0 1 0 ${h - r}`,
-      `L 0 ${r}`,
-      `A ${r} ${r} 0 0 1 ${r} 0`,
-      'Z',
-    ].join(' ');
-
-    return { strokePath: stroke, fillPath: stroke };
-  }, [pillWidth, pillHeight, isDockTop, isDockBottom, mode]);
-
-  // Specular rim gradient shading
-  const baseRimColor = isMediaActive
-    ? '#38bdf8'
-    : metrics.cpu_usage > 80
-    ? '#fb7185'
-    : '#ffffff';
-
-  const rimHighlightOpacity = isMediaActive || metrics.cpu_usage > 80
-    ? (isHovered ? 0.65 : 0.48)
-    : (isHovered ? 0.32 : 0.18);
-
-  const rimMidOpacity = isMediaActive || metrics.cpu_usage > 80
-    ? (isHovered ? 0.35 : 0.22)
-    : (isHovered ? 0.16 : 0.08);
-
-  const rimTopOpacity = isMediaActive || metrics.cpu_usage > 80
-    ? (isHovered ? 0.18 : 0.08)
-    : (isHovered ? 0.08 : 0.03);
+    return '';
+  }, [pillWidth, pillHeight, isDockTop, isDockBottom, isFloating, mode]);
 
   return (
     <div
@@ -409,15 +388,17 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           backgroundColor: '#000000',
           width: `${pillWidth}px`,
           height: `${pillHeight}px`,
-          border: 'none',
+          border: isFloating ? `1px solid ${outlineColor}` : 'none',
           borderTopLeftRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '19px' : '9999px') : '24px'),
           borderTopRightRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '19px' : '9999px') : '24px'),
           borderBottomLeftRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '19px' : '9999px') : '24px'),
           borderBottomRightRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '19px' : '9999px') : '24px'),
           boxShadow: isMediaActive
-            ? 'inset 0 0 16px rgba(56, 189, 248, 0.14)'
+            ? 'inset 0 0 16px rgba(56, 189, 248, 0.16)'
             : metrics.cpu_usage > 80
-            ? 'inset 0 0 16px rgba(251, 113, 133, 0.16)'
+            ? 'inset 0 0 16px rgba(251, 113, 133, 0.18)'
+            : isHovered
+            ? 'inset 0 0 12px rgba(255, 255, 255, 0.08)'
             : 'inset 0 0 10px rgba(255, 255, 255, 0.04)',
         }}
         className={`relative bg-black transition-all duration-300 ${
@@ -430,41 +411,38 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             : 'p-3.5 flex flex-col justify-between'
         }`}
       >
-        {/* Unified Continuous Vector Silhouette & Specular Rim */}
-        <svg
-          className="absolute inset-0 pointer-events-none select-none z-0"
-          style={{ overflow: 'visible', width: `${pillWidth}px`, height: `${pillHeight}px` }}
-        >
-          <defs>
-            <linearGradient
-              id="specularRim"
-              x1="0%"
-              y1={isDockBottom ? '100%' : '0%'}
-              x2="0%"
-              y2={isDockBottom ? '0%' : '100%'}
-            >
-              <stop offset="0%" stopColor={baseRimColor} stopOpacity={rimTopOpacity} />
-              <stop offset="42%" stopColor={baseRimColor} stopOpacity={rimMidOpacity} />
-              <stop offset="100%" stopColor={baseRimColor} stopOpacity={rimHighlightOpacity} />
-            </linearGradient>
-          </defs>
+        {/* Outward Concave Ear Wings and Notch Outline (Docked Mode Only) */}
+        {!isFloating && (
+          <svg
+            className="absolute inset-0 pointer-events-none select-none z-0"
+            style={{ overflow: 'visible', width: `${pillWidth}px`, height: `${pillHeight}px` }}
+          >
+            {/* Outer ear wings black fill (ONLY fills the 14x10 ear regions outside the div box) */}
+            {isDockTop && (
+              <>
+                <path d="M -14 0 C -6.3 0 0 4.5 0 10 L 0 0 Z" fill="#000000" />
+                <path d={`M ${pillWidth} 10 C ${pillWidth} 4.5 ${pillWidth + 7.7} 0 ${pillWidth + 14} 0 L ${pillWidth} 0 Z`} fill="#000000" />
+              </>
+            )}
+            {isDockBottom && (
+              <>
+                <path d={`M -14 ${pillHeight} C -6.3 ${pillHeight} 0 ${pillHeight - 4.5} 0 ${pillHeight - 10} L 0 ${pillHeight} Z`} fill="#000000" />
+                <path d={`M ${pillWidth} ${pillHeight - 10} C ${pillWidth} ${pillHeight - 4.5} ${pillWidth + 7.7} ${pillHeight} ${pillWidth + 14} ${pillHeight} L ${pillWidth} ${pillHeight} Z`} fill="#000000" />
+              </>
+            )}
 
-          {/* Black Fill for ear wings & notch body */}
-          {(isDockTop || isDockBottom) && (
-            <path d={fillPath} fill="#000000" />
-          )}
-
-          {/* Specular Rim Outline */}
-          <path
-            d={strokePath}
-            fill="none"
-            stroke="url(#specularRim)"
-            strokeWidth="1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ transition: 'stroke 0.3s ease, opacity 0.3s ease' }}
-          />
-        </svg>
+            {/* Seamless Notch Perimeter Stroke */}
+            <path
+              d={dockedPath}
+              fill="none"
+              stroke={outlineColor}
+              strokeWidth="1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ transition: 'stroke 0.25s ease' }}
+            />
+          </svg>
+        )}
 
         {/* Temporary Volume Feedback Overlay */}
         <AnimatePresence>
@@ -487,7 +465,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         {mode === 'compact' && (
           isMediaActive ? (
             <div
-              className="flex items-center justify-between w-full h-full gap-1.5 px-0.5"
+              className="relative z-10 flex items-center justify-between w-full h-full gap-1.5 px-0.5"
               style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
             >
               {/* Eyes Companion (Left) */}
@@ -604,7 +582,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           ) : showIdleStats ? (
             /* IDLE STATS MODE: THE PARTITIONED HUD (CONCEPT A) */
             <div
-              className="flex items-center w-full h-full"
+              className="relative z-10 flex items-center w-full h-full"
               style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', height: '100%' }}
             >
               {/* Eyes Companion (Left Partition - double-click to collapse stats) */}
@@ -727,7 +705,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 e.stopPropagation();
                 setShowIdleStats(true);
               }}
-              className="flex items-center justify-center w-full h-full cursor-pointer active:cursor-grabbing"
+              className="relative z-10 flex items-center justify-center w-full h-full cursor-pointer active:cursor-grabbing"
               title="Click to wink, double-click to view stats, drag to move"
             >
               <EyesCompanion
@@ -752,7 +730,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.18 }}
-              className={`flex ${isDockBottom ? 'flex-col-reverse' : 'flex-col'} w-full h-full justify-between`}
+              className={`relative z-10 flex ${isDockBottom ? 'flex-col-reverse' : 'flex-col'} w-full h-full justify-between`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Unified Header: Eyes Companion & Song Title/Artist (Draggable) */}
