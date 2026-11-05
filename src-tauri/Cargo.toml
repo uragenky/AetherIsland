@@ -1,6 +1,6 @@
 [package]
 name = "aether-island"
-version = "0.4.0"
+version = "0.4.1"
 description = "Dynamic Island for Windows with Eye Companion, System Stats, Media Controls, and Synced Lyrics"
 authors = ["PTDI Team"]
 edition = "2021"

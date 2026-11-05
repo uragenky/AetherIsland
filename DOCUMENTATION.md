@@ -68,8 +68,17 @@
   - `skip_taskbar: true`
 - **Dynamic Hit-Testing & Sizing**:
   - In traditional transparent overlay windows, a full-width transparent window captures mouse clicks and blocks user interactions with browser tabs or application title bars.
-  - *Solution*: AetherIsland resizes the OS-level native window bounds dynamically to match the current visual size of the pill (e.g., `84x36` in idle compact capsule, `370x38` in media mode, `430x270` in expanded mode).
+  - *Solution*: AetherIsland resizes the OS-level native window bounds dynamically to match the current visual size of the pill (e.g., `84x38` in idle compact capsule, `370x38` in media mode, `430x276` in expanded mode).
   - Area outside the pill remains nonexistent to the OS window manager, guaranteeing 100% click pass-through.
+- **Smart Non-Intrusive Taskbar Z-Order & Start Menu Guard**:
+  - The island and the Windows Taskbar (`Shell_TrayWnd`) both reside in the `HWND_TOPMOST` Z-band.
+  - Rather than spamming `SetWindowPos` on an aggressive timer loop (which forces DWM composition re-renders and auto-dismisses light-dismiss popups), AetherIsland employs an event-driven and conditional Z-order guard:
+    - **Start Menu & Flyout Detection (`is_start_menu_or_flyout_open`)**: Inspects foreground window classes (`Windows.UI.Core.CoreWindow`, `StartMenuExperienceHost`, `XamlExplorerHostIslandWindow`) and checks `Shell_LightDismissOverlay` visibility. If any shell flyout is active, `SetWindowPos` is suspended to guarantee that pressing the Windows key or clicking Start never dismisses the Start Menu.
+    - **Covered-by-Taskbar Detection (`is_island_covered_by_taskbar`)**: Climbs the Z-order chain (`GW_HWNDPREV`). Only when `Shell_TrayWnd` has actually been elevated above the island (and Start Menu is not open) is `SetWindowPos` called with `SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE`.
+    - Once elevated, zero subsequent API calls are made, yielding 0% CPU consumption and no DWM interference.
+- **Native OS Context Menu**:
+  - Right-clicking the island invokes a native Win32/Tauri context menu without taking application focus.
+  - Features a **Visible Metrics** submenu (`CPU`, `RAM`, `GPU`, `Battery`, `Network`) for real-time toggle without entering settings, and a graceful **Exit Application** action.
 - **Multi-Edge Docking & WorkArea Support**:
   - Supports three distinct docking modes: `'top'`, `'bottom'`, and `'floating'`.
   - Integrates native Win32 `GetMonitorInfoW` (`rcWork`) to read the display's usable work area, automatically compensating for the Windows Taskbar height when docking to the bottom of the screen.
@@ -230,5 +239,5 @@ The island operates in three visual modes:
 - [x] **Phase 4**: WinRT GSMTC media worker integration, bidirectional IPC commands, loop-free time tracking, and transport controls.
 - [x] **Phase 5**: LRCLIB lyrics client, title sanitizer, multi-script Romanization engine (Romaji, Hangul, Cyrillic, Arabic), and synchronized karaoke renderer.
 - [x] **Phase 6**: `sysinfo` + Win32 telemetry worker for CPU, RAM (`MemoryStick`), GPU (`Gpu`), native battery & charging, and network bandwidth.
-- [ ] **Phase 7**: Fullscreen detection and auto-hide/collapse mechanics.
-- [ ] **Phase 8**: Optimization pass, memory profiling, and packaging.
+- [x] **Phase 7**: Smart non-intrusive taskbar Z-order & Start Menu guard, native context menu, seekbar desync guard, and modular telemetry.
+- [x] **Phase 8**: Production packaging (NSIS .exe and WiX .msi bundle workflows).
