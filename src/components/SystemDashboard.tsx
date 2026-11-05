@@ -24,7 +24,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({ metrics }) => 
   return (
     <div className="grid grid-cols-3 gap-2 w-full text-white pt-1">
       {/* CPU Metric Card */}
-      <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/5">
+      <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/10">
         <div className={`p-1.5 rounded-lg ${getMetricColor(metrics.cpu_usage)}`}>
           <Cpu className="w-3.5 h-3.5" />
         </div>
@@ -37,7 +37,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({ metrics }) => 
       </div>
 
       {/* RAM Metric Card */}
-      <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/5">
+      <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/10">
         <div className={`p-1.5 rounded-lg ${getRamColor(metrics.ram_percentage)}`}>
           <MemoryStick className="w-3.5 h-3.5" />
         </div>
@@ -50,7 +50,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({ metrics }) => 
       </div>
 
       {/* GPU Metric Card */}
-      <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/5">
+      <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/10">
         <div className={`p-1.5 rounded-lg ${getMetricColor(gpuVal)}`}>
           <Gpu className="w-3.5 h-3.5" />
         </div>
@@ -63,7 +63,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({ metrics }) => 
       </div>
 
       {/* Network Speeds Card */}
-      <div className="flex items-center justify-between col-span-3 bg-neutral-900/80 rounded-xl px-3 py-1.5 border border-white/5 text-xs text-neutral-300">
+      <div className="flex items-center justify-between col-span-3 bg-neutral-900/80 rounded-xl px-3 py-1.5 border border-white/10 text-xs text-neutral-300">
         <div className="flex items-center gap-1.5">
           <ArrowDown className="w-3.5 h-3.5 text-emerald-400" />
           <span className="text-[11px] font-medium">

@@ -54,6 +54,25 @@ async fn get_lyrics(
     state.lyrics.fetch_lyrics(&title, &artist, duration_secs).await
 }
 
+#[tauri::command]
+async fn search_lyrics_candidates(
+    state: State<'_, AppState>,
+    title: String,
+    artist: String,
+) -> Result<Vec<lyrics::LyricsCandidate>, String> {
+    state.lyrics.search_candidates(&title, &artist).await
+}
+
+#[tauri::command]
+async fn get_lyrics_by_id(
+    state: State<'_, AppState>,
+    id: u64,
+    title: Option<String>,
+    artist: Option<String>,
+) -> Result<LyricsData, String> {
+    state.lyrics.fetch_by_id(id, title, artist).await
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ScreenBounds {
     pub left: f64,
@@ -476,6 +495,8 @@ pub fn run() {
             media_skip_previous,
             media_seek,
             get_lyrics,
+            search_lyrics_candidates,
+            get_lyrics_by_id,
             set_island_window_size,
             start_window_drag,
             snap_island,

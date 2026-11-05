@@ -19,6 +19,17 @@ pub struct LyricsData {
     pub parsed_lines: Vec<LyricLine>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LyricsCandidate {
+    pub id: u64,
+    pub track_name: String,
+    pub artist_name: String,
+    pub album_name: Option<String>,
+    pub duration: Option<f64>,
+    pub instrumental: bool,
+    pub has_synced: bool,
+}
+
 pub struct LyricsState {
     cache: Mutex<HashMap<String, LyricsData>>,
     client: reqwest::Client,
@@ -244,6 +255,147 @@ impl LyricsState {
 
         let mut cache = self.cache.lock().unwrap();
         cache.insert(cache_key, lyrics_data.clone());
+        Ok(lyrics_data)
+    }
+
+    pub async fn search_candidates(
+        &self,
+        raw_title: &str,
+        raw_artist: &str,
+    ) -> Result<Vec<LyricsCandidate>, String> {
+        let clean_title = Self::clean_title(raw_title);
+        let clean_artist = raw_artist.trim();
+
+        #[derive(Deserialize)]
+        struct RawItem {
+            id: u64,
+            #[serde(alias = "name")]
+            track_name: Option<String>,
+            artist_name: Option<String>,
+            album_name: Option<String>,
+            duration: Option<f64>,
+            #[serde(default)]
+            instrumental: bool,
+            #[serde(rename = "syncedLyrics")]
+            synced_lyrics: Option<String>,
+        }
+
+        // 1. Try structured search with track_name and artist_name
+        let url_structured = format!(
+            "https://lrclib.net/api/search?track_name={}&artist_name={}",
+            urlencoding::encode(&clean_title),
+            urlencoding::encode(clean_artist)
+        );
+
+        let mut results: Vec<RawItem> = Vec::new();
+        if let Ok(resp) = self.client.get(&url_structured).send().await {
+            if let Ok(items) = resp.json::<Vec<RawItem>>().await {
+                results = items;
+            }
+        }
+
+        // 2. Fallback to freeform search query if structured returned 0 results
+        if results.is_empty() {
+            let query = if clean_artist.is_empty() {
+                clean_title.clone()
+            } else {
+                format!("{} {}", clean_title, clean_artist)
+            };
+            let url_q = format!(
+                "https://lrclib.net/api/search?q={}",
+                urlencoding::encode(&query)
+            );
+            if let Ok(resp) = self.client.get(&url_q).send().await {
+                if let Ok(items) = resp.json::<Vec<RawItem>>().await {
+                    results = items;
+                }
+            }
+        }
+
+        let candidates = results
+            .into_iter()
+            .map(|item| {
+                let has_synced = item
+                    .synced_lyrics
+                    .as_ref()
+                    .map(|s| !s.trim().is_empty())
+                    .unwrap_or(false);
+                LyricsCandidate {
+                    id: item.id,
+                    track_name: item.track_name.unwrap_or_else(|| clean_title.clone()),
+                    artist_name: item.artist_name.unwrap_or_else(|| clean_artist.to_string()),
+                    album_name: item.album_name,
+                    duration: item.duration,
+                    instrumental: item.instrumental,
+                    has_synced,
+                }
+            })
+            .collect();
+
+        Ok(candidates)
+    }
+
+    pub async fn fetch_by_id(
+        &self,
+        id: u64,
+        raw_title: Option<String>,
+        raw_artist: Option<String>,
+    ) -> Result<LyricsData, String> {
+        let url = format!("https://lrclib.net/api/get/{}", id);
+
+        #[derive(Deserialize)]
+        struct RawLrclibGet {
+            #[serde(alias = "name")]
+            track_name: Option<String>,
+            artist_name: Option<String>,
+            duration: Option<f64>,
+            #[serde(rename = "syncedLyrics")]
+            synced_lyrics: Option<String>,
+            #[serde(rename = "plainLyrics")]
+            plain_lyrics: Option<String>,
+        }
+
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch lyric ID {}: {}", id, e))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("LRCLIB returned status {}", resp.status()));
+        }
+
+        let data: RawLrclibGet = resp
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse lyric JSON: {}", e))?;
+
+        let title = data
+            .track_name
+            .unwrap_or_else(|| raw_title.unwrap_or_default());
+        let artist = data
+            .artist_name
+            .unwrap_or_else(|| raw_artist.unwrap_or_default());
+        let parsed_lines = data
+            .synced_lyrics
+            .as_deref()
+            .map(Self::parse_lrc)
+            .unwrap_or_default();
+
+        let lyrics_data = LyricsData {
+            title: title.clone(),
+            artist: artist.clone(),
+            duration_ms: data.duration.map(|d| (d * 1000.0) as u64),
+            synced_lyrics: data.synced_lyrics,
+            plain_lyrics: data.plain_lyrics,
+            parsed_lines,
+        };
+
+        let cache_key = format!("{}::{}", artist.trim().to_lowercase(), title.trim().to_lowercase());
+        let mut cache = self.cache.lock().unwrap();
+        cache.insert(cache_key, lyrics_data.clone());
+
         Ok(lyrics_data)
     }
 }

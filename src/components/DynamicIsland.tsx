@@ -51,6 +51,7 @@ interface DynamicIslandProps {
   onNext: () => void;
   onPrev: () => void;
   onSeek: (posMs: number) => void;
+  onLyricsChange?: (data: LyricsData) => void;
 }
 
 export const DynamicIsland: React.FC<DynamicIslandProps> = ({
@@ -62,6 +63,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   onNext,
   onPrev,
   onSeek,
+  onLyricsChange,
 }) => {
   const [mode, setMode] = useState<IslandMode>('compact');
   const [activeTab, setActiveTab] = useState<'media' | 'system'>('media');
@@ -109,14 +111,14 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       try {
         if (mode === 'compact') {
           if (isMediaActive) {
-            await invoke('set_island_window_size', { width: 380.0, height: 44.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: 370.0, height: 38.0, yOffset: 0.0 });
           } else if (showIdleStats) {
-            await invoke('set_island_window_size', { width: hasBattery ? 395.0 : 340.0, height: 44.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: hasBattery ? 385.0 : 340.0, height: 38.0, yOffset: 0.0 });
           } else {
-            await invoke('set_island_window_size', { width: 92.0, height: 42.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: 84.0, height: 36.0, yOffset: 0.0 });
           }
         } else {
-          await invoke('set_island_window_size', { width: 440.0, height: 292.0, yOffset: 0.0 });
+          await invoke('set_island_window_size', { width: 430.0, height: 276.0, yOffset: 0.0 });
         }
       } catch {
         // Ignored in non-windowed environments
@@ -192,13 +194,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     <div
       className={`fixed inset-0 flex justify-center ${
         isDockBottom
-          ? mode === 'compact'
-            ? 'items-end'
-            : 'items-end pb-1.5'
+          ? 'items-end'
           : isDockTop
-          ? mode === 'compact'
-            ? 'items-start'
-            : 'items-start pt-1.5'
+          ? 'items-start'
           : 'items-center'
       } select-none pointer-events-auto`}
     >
@@ -219,14 +217,14 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         }}
         style={{
           backgroundColor: '#000000',
-          borderTop: mode === 'compact' && isDockTop ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
-          borderBottom: mode === 'compact' && isDockBottom ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
+          borderTop: isDockTop ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
+          borderBottom: isDockBottom ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
           borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
           borderRight: '1px solid rgba(255, 255, 255, 0.35)',
-          borderTopLeftRadius: mode === 'compact' ? (isDockTop ? '0px' : isDockBottom ? '20px' : '9999px') : '24px',
-          borderTopRightRadius: mode === 'compact' ? (isDockTop ? '0px' : isDockBottom ? '20px' : '9999px') : '24px',
-          borderBottomLeftRadius: mode === 'compact' ? (isDockBottom ? '0px' : isDockTop ? '20px' : '9999px') : '24px',
-          borderBottomRightRadius: mode === 'compact' ? (isDockBottom ? '0px' : isDockTop ? '20px' : '9999px') : '24px',
+          borderTopLeftRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '20px' : '9999px') : '24px'),
+          borderTopRightRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '20px' : '9999px') : '24px'),
+          borderBottomLeftRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '20px' : '9999px') : '24px'),
+          borderBottomRightRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '20px' : '9999px') : '24px'),
           boxShadow: 'none',
         }}
         className={`relative bg-black transition-all duration-300 ${
@@ -521,13 +519,13 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 </div>
 
                 <div
-                  className="flex items-center gap-1 bg-white/5 rounded-full p-0.5 border border-white/5"
+                  className="flex items-center gap-1 bg-white/5 rounded-full p-0.5 border border-white/10"
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   {mode === 'lyrics' ? (
                     <button
                       onClick={() => setMode('expanded')}
-                      className="px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer bg-white/20 text-white font-medium shadow-sm"
+                      className="px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium shadow-sm active:scale-95"
                     >
                       <Disc className="w-3 h-3" />
                       <span>Player</span>
@@ -539,10 +537,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                           setMode('expanded');
                           setActiveTab('media');
                         }}
-                        className={`px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer ${
+                        className={`px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
                           mode === 'expanded' && activeTab === 'media'
-                            ? 'bg-white/20 text-white font-medium shadow-sm'
-                            : 'text-neutral-400 hover:text-white'
+                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 font-medium shadow-sm'
+                            : 'text-neutral-400 hover:text-white hover:bg-white/5 border-transparent'
                         }`}
                       >
                         <Disc className="w-3 h-3" />
@@ -554,10 +552,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                           setMode('expanded');
                           setActiveTab('system');
                         }}
-                        className={`px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer ${
+                        className={`px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
                           mode === 'expanded' && activeTab === 'system'
-                            ? 'bg-white/20 text-white font-medium shadow-sm'
-                            : 'text-neutral-400 hover:text-white'
+                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 font-medium shadow-sm'
+                            : 'text-neutral-400 hover:text-white hover:bg-white/5 border-transparent'
                         }`}
                       >
                         <Activity className="w-3 h-3" />
@@ -568,7 +566,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
                   <button
                     onClick={toggleExpand}
-                    className="p-1 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer ml-0.5"
+                    className="p-1 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer ml-0.5 active:scale-90"
                     title="Minimize Island"
                   >
                     <Minimize2 className="w-3.5 h-3.5" />
@@ -576,7 +574,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
                   <button
                     onClick={() => invoke('exit_app')}
-                    className="p-1 text-neutral-400 hover:text-rose-400 hover:bg-rose-500/20 rounded-full transition-colors cursor-pointer ml-0.5"
+                    className="p-1 text-neutral-400 hover:text-rose-400 hover:bg-rose-500/20 rounded-full transition-colors cursor-pointer ml-0.5 active:scale-90"
                     title="Quit AetherIsland"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -594,6 +592,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   onSeek={onSeek}
                   onPlayPause={onPlayPause}
                   onBack={() => setMode('expanded')}
+                  onLyricsChange={onLyricsChange}
                 />
               ) : activeTab === 'media' ? (
                 <MediaController

@@ -35,6 +35,16 @@ export interface LyricsData {
   parsed_lines: LyricLine[];
 }
 
+export interface LyricsCandidate {
+  id: number;
+  track_name: string;
+  artist_name: string;
+  album_name?: string | null;
+  duration?: number | null;
+  instrumental: boolean;
+  has_synced: boolean;
+}
+
 export type IslandMode = 'compact' | 'expanded' | 'lyrics';
 
 export type EyeMood = 'idle' | 'happy' | 'groove' | 'look_at' | 'stress' | 'sleepy' | 'wink';

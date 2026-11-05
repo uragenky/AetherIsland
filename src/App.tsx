@@ -88,11 +88,30 @@ export function App() {
     setIsLyricsLoading(true);
     const durationSecs = media.duration_ms > 0 ? Math.floor(media.duration_ms / 1000) : undefined;
 
-    invoke<LyricsData>('get_lyrics', {
-      title: media.title,
-      artist: media.artist,
-      durationSecs,
-    })
+    // Check if user previously selected a custom lyric ID for this track
+    const prefKey = `custom_lyrics_${media.artist.trim().toLowerCase()}_${media.title.trim().toLowerCase()}`;
+    const savedIdStr = localStorage.getItem(prefKey);
+    const savedId = savedIdStr ? parseInt(savedIdStr, 10) : null;
+
+    const lyricsPromise = savedId
+      ? invoke<LyricsData>('get_lyrics_by_id', {
+          id: savedId,
+          title: media.title,
+          artist: media.artist,
+        }).catch(() =>
+          invoke<LyricsData>('get_lyrics', {
+            title: media.title,
+            artist: media.artist,
+            durationSecs,
+          })
+        )
+      : invoke<LyricsData>('get_lyrics', {
+          title: media.title,
+          artist: media.artist,
+          durationSecs,
+        });
+
+    lyricsPromise
       .then((data) => {
         setLyricsData(data);
         const resolvedDuration = data.duration_ms && data.duration_ms > 0
@@ -189,6 +208,7 @@ export function App() {
         onNext={handleNext}
         onPrev={handlePrev}
         onSeek={handleSeek}
+        onLyricsChange={(data) => setLyricsData(data)}
       />
     </main>
   );
