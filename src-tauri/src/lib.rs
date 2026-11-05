@@ -129,7 +129,7 @@ pub fn ensure_always_on_top(window: &Window) {
         // Don't assert topmost over Windows Start Menu, Taskbar, or Shell flyouts
         unsafe {
             let fg_hwnd = GetForegroundWindow();
-            if fg_hwnd.0 != 0 {
+            if !fg_hwnd.0.is_null() {
                 let mut class_buf = [0u16; 128];
                 let len = GetClassNameW(fg_hwnd, &mut class_buf) as usize;
                 if len > 0 {
