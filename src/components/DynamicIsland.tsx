@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -178,7 +178,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     const resizeWindow = async () => {
       try {
         const isDocked = dockStatus === 'top' || dockStatus === 'bottom';
-        const earBuffer = isDocked ? 24.0 : 0.0;
+        const earBuffer = isDocked ? 30.0 : 0.0;
         if (mode === 'compact') {
           if (isMediaActive) {
             await invoke('set_island_window_size', { width: 370.0 + earBuffer, height: 38.0, yOffset: 0.0 });
@@ -289,11 +289,91 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const isDockTop = dockStatus === 'top';
   const isDockBottom = dockStatus === 'bottom';
 
-  const currentBorderColor = isMediaActive
-    ? 'rgba(56, 189, 248, 0.42)'
+  const [isHovered, setIsHovered] = useState(false);
+
+  const pillWidth =
+    mode === 'compact'
+      ? isMediaActive
+        ? 370
+        : showIdleStats
+        ? statsWidth
+        : 84
+      : 430;
+  const pillHeight = mode === 'compact' ? 38 : 276;
+
+  // Seamless continuous silhouette path (Notch ears + capsule body without seams)
+  const { strokePath, fillPath } = useMemo(() => {
+    const r = mode === 'compact' ? 19 : 24;
+    const wingW = 14;
+    const wingH = 10;
+    const w = pillWidth;
+    const h = pillHeight;
+
+    if (isDockTop) {
+      const stroke = [
+        `M ${-wingW} 0`,
+        `C ${-wingW * 0.45} 0 0 ${wingH * 0.45} 0 ${wingH}`,
+        `L 0 ${h - r}`,
+        `A ${r} ${r} 0 0 0 ${r} ${h}`,
+        `L ${w - r} ${h}`,
+        `A ${r} ${r} 0 0 0 ${w} ${h - r}`,
+        `L ${w} ${wingH}`,
+        `C ${w} ${wingH * 0.45} ${w + wingW * 0.55} 0 ${w + wingW} 0`,
+      ].join(' ');
+      const fill = `${stroke} L ${w + wingW} 0 L ${-wingW} 0 Z`;
+      return { strokePath: stroke, fillPath: fill };
+    }
+
+    if (isDockBottom) {
+      const stroke = [
+        `M ${-wingW} ${h}`,
+        `C ${-wingW * 0.45} ${h} 0 ${h - wingH * 0.45} 0 ${h - wingH}`,
+        `L 0 ${r}`,
+        `A ${r} ${r} 0 0 1 ${r} 0`,
+        `L ${w - r} 0`,
+        `A ${r} ${r} 0 0 1 ${w} ${r}`,
+        `L ${w} ${h - wingH}`,
+        `C ${w} ${h - wingH * 0.45} ${w + wingW * 0.55} ${h} ${w + wingW} ${h}`,
+      ].join(' ');
+      const fill = `${stroke} L ${w + wingW} ${h} L ${-wingW} ${h} Z`;
+      return { strokePath: stroke, fillPath: fill };
+    }
+
+    // Floating Capsule / Squircle
+    const stroke = [
+      `M ${r} 0`,
+      `L ${w - r} 0`,
+      `A ${r} ${r} 0 0 1 ${w} ${r}`,
+      `L ${w} ${h - r}`,
+      `A ${r} ${r} 0 0 1 ${w - r} ${h}`,
+      `L ${r} ${h}`,
+      `A ${r} ${r} 0 0 1 0 ${h - r}`,
+      `L 0 ${r}`,
+      `A ${r} ${r} 0 0 1 ${r} 0`,
+      'Z',
+    ].join(' ');
+
+    return { strokePath: stroke, fillPath: stroke };
+  }, [pillWidth, pillHeight, isDockTop, isDockBottom, mode]);
+
+  // Specular rim gradient shading
+  const baseRimColor = isMediaActive
+    ? '#38bdf8'
     : metrics.cpu_usage > 80
-    ? 'rgba(251, 113, 133, 0.42)'
-    : 'rgba(255, 255, 255, 0.3)';
+    ? '#fb7185'
+    : '#ffffff';
+
+  const rimHighlightOpacity = isMediaActive || metrics.cpu_usage > 80
+    ? (isHovered ? 0.65 : 0.48)
+    : (isHovered ? 0.32 : 0.18);
+
+  const rimMidOpacity = isMediaActive || metrics.cpu_usage > 80
+    ? (isHovered ? 0.35 : 0.22)
+    : (isHovered ? 0.16 : 0.08);
+
+  const rimTopOpacity = isMediaActive || metrics.cpu_usage > 80
+    ? (isHovered ? 0.18 : 0.08)
+    : (isHovered ? 0.08 : 0.03);
 
   return (
     <div
@@ -319,32 +399,26 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           invoke('show_context_menu', { config: visibleStats }).catch(() => {});
         }}
         onPointerEnter={() => {
+          setIsHovered(true);
           invoke('force_topmost').catch(() => {});
+        }}
+        onPointerLeave={() => {
+          setIsHovered(false);
         }}
         style={{
           backgroundColor: '#000000',
-          width:
-            mode === 'compact'
-              ? isMediaActive
-                ? '370px'
-                : showIdleStats
-                ? `${statsWidth}px`
-                : '84px'
-              : '430px',
-          height: mode === 'compact' ? '38px' : '276px',
-          borderTop: isDockTop ? 'none' : `1px solid ${currentBorderColor}`,
-          borderBottom: isDockBottom ? 'none' : `1px solid ${currentBorderColor}`,
-          borderLeft: `1px solid ${currentBorderColor}`,
-          borderRight: `1px solid ${currentBorderColor}`,
-          borderTopLeftRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '20px' : '9999px') : '24px'),
-          borderTopRightRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '20px' : '9999px') : '24px'),
-          borderBottomLeftRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '20px' : '9999px') : '24px'),
-          borderBottomRightRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '20px' : '9999px') : '24px'),
+          width: `${pillWidth}px`,
+          height: `${pillHeight}px`,
+          border: 'none',
+          borderTopLeftRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '19px' : '9999px') : '24px'),
+          borderTopRightRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '19px' : '9999px') : '24px'),
+          borderBottomLeftRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '19px' : '9999px') : '24px'),
+          borderBottomRightRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '19px' : '9999px') : '24px'),
           boxShadow: isMediaActive
             ? 'inset 0 0 16px rgba(56, 189, 248, 0.14)'
             : metrics.cpu_usage > 80
             ? 'inset 0 0 16px rgba(251, 113, 133, 0.16)'
-            : 'inset 0 0 10px rgba(255, 255, 255, 0.05)',
+            : 'inset 0 0 10px rgba(255, 255, 255, 0.04)',
         }}
         className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
@@ -356,92 +430,41 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             : 'p-3.5 flex flex-col justify-between'
         }`}
       >
-        {/* Outward Concave Notch Ears (Lekukan ke Arah Luar saat Menempel) */}
-        {isDockTop && (
-          <>
-            {/* Top-Left Outward Wing */}
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              className="absolute -left-[12px] top-0 pointer-events-none select-none"
-              style={{ overflow: 'visible' }}
+        {/* Unified Continuous Vector Silhouette & Specular Rim */}
+        <svg
+          className="absolute inset-0 pointer-events-none select-none z-0"
+          style={{ overflow: 'visible', width: `${pillWidth}px`, height: `${pillHeight}px` }}
+        >
+          <defs>
+            <linearGradient
+              id="specularRim"
+              x1="0%"
+              y1={isDockBottom ? '100%' : '0%'}
+              x2="0%"
+              y2={isDockBottom ? '0%' : '100%'}
             >
-              <path
-                d="M 0,0 C 6.5,0 12,5.5 12,12 L 12,0 Z"
-                fill="#000000"
-              />
-              <path
-                d="M 0,0 C 6.5,0 12,5.5 12,12"
-                fill="none"
-                stroke={currentBorderColor}
-                strokeWidth="1"
-              />
-            </svg>
-            {/* Top-Right Outward Wing */}
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              className="absolute -right-[12px] top-0 pointer-events-none select-none"
-              style={{ overflow: 'visible' }}
-            >
-              <path
-                d="M 12,0 C 5.5,0 0,5.5 0,12 L 0,0 Z"
-                fill="#000000"
-              />
-              <path
-                d="M 12,0 C 5.5,0 0,5.5 0,12"
-                fill="none"
-                stroke={currentBorderColor}
-                strokeWidth="1"
-              />
-            </svg>
-          </>
-        )}
+              <stop offset="0%" stopColor={baseRimColor} stopOpacity={rimTopOpacity} />
+              <stop offset="42%" stopColor={baseRimColor} stopOpacity={rimMidOpacity} />
+              <stop offset="100%" stopColor={baseRimColor} stopOpacity={rimHighlightOpacity} />
+            </linearGradient>
+          </defs>
 
-        {isDockBottom && (
-          <>
-            {/* Bottom-Left Outward Wing */}
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              className="absolute -left-[12px] bottom-0 pointer-events-none select-none"
-              style={{ overflow: 'visible' }}
-            >
-              <path
-                d="M 0,12 C 6.5,12 12,6.5 12,0 L 12,12 Z"
-                fill="#000000"
-              />
-              <path
-                d="M 0,12 C 6.5,12 12,6.5 12,0"
-                fill="none"
-                stroke={currentBorderColor}
-                strokeWidth="1"
-              />
-            </svg>
-            {/* Bottom-Right Outward Wing */}
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              className="absolute -right-[12px] bottom-0 pointer-events-none select-none"
-              style={{ overflow: 'visible' }}
-            >
-              <path
-                d="M 12,12 C 5.5,12 0,6.5 0,0 L 0,12 Z"
-                fill="#000000"
-              />
-              <path
-                d="M 12,12 C 5.5,12 0,6.5 0,0"
-                fill="none"
-                stroke={currentBorderColor}
-                strokeWidth="1"
-              />
-            </svg>
-          </>
-        )}
+          {/* Black Fill for ear wings & notch body */}
+          {(isDockTop || isDockBottom) && (
+            <path d={fillPath} fill="#000000" />
+          )}
+
+          {/* Specular Rim Outline */}
+          <path
+            d={strokePath}
+            fill="none"
+            stroke="url(#specularRim)"
+            strokeWidth="1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ transition: 'stroke 0.3s ease, opacity 0.3s ease' }}
+          />
+        </svg>
 
         {/* Temporary Volume Feedback Overlay */}
         <AnimatePresence>
