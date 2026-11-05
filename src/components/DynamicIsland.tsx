@@ -177,7 +177,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   useEffect(() => {
     const resizeWindow = async () => {
       try {
-        const isDocked = dockStatus === 'top' || dockStatus === 'bottom';
+        const isDocked = (dockStatus === 'top' || dockStatus === 'bottom') && !isDragging;
         const earBuffer = isDocked ? 30.0 : 0.0;
         if (mode === 'compact') {
           if (isMediaActive) {
@@ -195,7 +195,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       }
     };
     resizeWindow();
-  }, [mode, isMediaActive, showIdleStats, statsWidth, dockStatus]);
+  }, [mode, isMediaActive, showIdleStats, statsWidth, dockStatus, isDragging]);
 
   const toggleExpand = () => {
     if (mode === 'compact') {
@@ -265,13 +265,14 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     if (dragStartRef.current) {
       dragStartRef.current.isDown = false;
     }
+    setIsDragging(false);
   };
 
   // Ensure drag release executes snapping reliably on pointer release
   useEffect(() => {
     const handleGlobalRelease = () => {
-      if (dragStartRef.current?.isDown) {
-        dragStartRef.current.isDown = false;
+      if (dragStartRef.current?.isDown || isDragging) {
+        if (dragStartRef.current) dragStartRef.current.isDown = false;
         setTimeout(() => {
           invoke<string>('snap_island')
             .then((status) => {
@@ -279,7 +280,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 setDockStatus(status);
               }
             })
-            .catch(() => {});
+            .catch(() => {})
+            .finally(() => {
+              setIsDragging(false);
+            });
         }, 35);
       }
     };
@@ -289,13 +293,13 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       window.removeEventListener('pointerup', handleGlobalRelease);
       window.removeEventListener('mouseup', handleGlobalRelease);
     };
-  }, []);
+  }, [isDragging]);
 
   const displayTrack = media.title ? `${media.title}${media.artist ? ` — ${media.artist}` : ''}` : 'No Track Playing';
   const romajiTrack = hasNonLatinScript(displayTrack) ? transliterateText(displayTrack) : null;
 
-  const isDockTop = dockStatus === 'top';
-  const isDockBottom = dockStatus === 'bottom';
+  const isDockTop = dockStatus === 'top' && !isDragging;
+  const isDockBottom = dockStatus === 'bottom' && !isDragging;
   const isFloating = !isDockTop && !isDockBottom;
 
   const [isHovered, setIsHovered] = useState(false);

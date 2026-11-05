@@ -234,18 +234,18 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         animate={
           currentMood === 'dizzy'
-            ? { rotate: 360 }
+            ? { rotate: 360, x: 0, y: 0, scale: 1, scaleY: 1 }
             : currentMood === 'charging'
-            ? { scale: [0.95, 1.1, 0.95] }
+            ? { scale: [0.95, 1.1, 0.95], rotate: 0, x: 0, y: 0 }
             : currentMood === 'happy'
-            ? { y: [0, -2, 0] }
+            ? { y: [0, -2, 0], rotate: 0, x: 0, scale: 1, scaleY: 1 }
             : currentMood === 'groove'
-            ? { y: [0, -2, 0], rotate: [-2, 2, -2] }
+            ? { y: [0, -2, 0], rotate: [-2, 2, -2], x: 0, scale: 1, scaleY: 1 }
             : currentMood === 'stress'
-            ? { x: [-1.2, 1.2, -1.2], scaleY: [0.8, 1.1, 0.8] }
+            ? { x: [-1.2, 1.2, -1.2], scaleY: [0.8, 1.1, 0.8], rotate: 0, y: 0 }
             : currentMood === 'sleepy'
-            ? { scaleY: [1, 0.7, 1], y: [0, 0.6, 0] }
-            : { x: mouseOffset.x, y: mouseOffset.y }
+            ? { scaleY: [1, 0.7, 1], y: [0, 0.6, 0], rotate: 0, x: 0 }
+            : { x: mouseOffset.x, y: mouseOffset.y, rotate: 0, scale: 1, scaleY: 1 }
         }
         transition={
           currentMood === 'dizzy'
@@ -328,20 +328,20 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         animate={
           currentMood === 'wink'
-            ? { scaleY: 0.2 }
+            ? { scaleY: 0.2, rotate: 0, x: 0, y: 0 }
             : currentMood === 'dizzy'
-            ? { rotate: 360 }
+            ? { rotate: 360, x: 0, y: 0, scale: 1, scaleY: 1 }
             : currentMood === 'charging'
-            ? { scale: [0.95, 1.1, 0.95] }
+            ? { scale: [0.95, 1.1, 0.95], rotate: 0, x: 0, y: 0 }
             : currentMood === 'happy'
-            ? { y: [0, -2, 0] }
+            ? { y: [0, -2, 0], rotate: 0, x: 0, scale: 1, scaleY: 1 }
             : currentMood === 'groove'
-            ? { y: [0, -2, 0], rotate: [2, -2, 2] }
+            ? { y: [0, -2, 0], rotate: [2, -2, 2], x: 0, scale: 1, scaleY: 1 }
             : currentMood === 'stress'
-            ? { x: [1.2, -1.2, 1.2], scaleY: [0.8, 1.1, 0.8] }
+            ? { x: [1.2, -1.2, 1.2], scaleY: [0.8, 1.1, 0.8], rotate: 0, y: 0 }
             : currentMood === 'sleepy'
-            ? { scaleY: [1, 0.7, 1], y: [0, 0.6, 0] }
-            : { x: mouseOffset.x, y: mouseOffset.y }
+            ? { scaleY: [1, 0.7, 1], y: [0, 0.6, 0], rotate: 0, x: 0 }
+            : { x: mouseOffset.x, y: mouseOffset.y, rotate: 0, scale: 1, scaleY: 1 }
         }
         transition={
           currentMood === 'dizzy'

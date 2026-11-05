@@ -695,35 +695,6 @@ pub fn run() {
                 _ => {}
             }
         })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Moved(pos) = event {
-                let scale_factor = window
-                    .current_monitor()
-                    .ok()
-                    .flatten()
-                    .map(|m| m.scale_factor())
-                    .unwrap_or(1.0);
-
-                let logical_y = pos.y as f64 / scale_factor;
-                let logical_h = window
-                    .outer_size()
-                    .map(|s| s.height as f64 / scale_factor)
-                    .unwrap_or(38.0);
-
-                if let Some(screen) = get_monitor_screen_bounds(window) {
-                    let is_top = (logical_y - screen.top) <= SNAP_THRESHOLD_TOP;
-                    let is_bottom = (screen.bottom - (logical_y + logical_h)) <= SNAP_THRESHOLD_BOTTOM;
-                    let status = if is_top {
-                        "top"
-                    } else if is_bottom {
-                        "bottom"
-                    } else {
-                        "floating"
-                    };
-                    let _ = window.emit("edge-snap-status", status);
-                }
-            }
-        })
         .setup(move |app| {
             let handle = app.handle().clone();
 
