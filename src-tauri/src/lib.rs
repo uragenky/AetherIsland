@@ -394,11 +394,6 @@ fn snap_window_to_edges(window: &Window) -> String {
     dock_status.to_string()
 }
 
-#[cfg(target_os = "windows")]
-extern "system" {
-    fn GetAsyncKeyState(vKey: i32) -> i16;
-}
-
 #[tauri::command]
 async fn start_window_drag(window: Window) -> Result<String, String> {
     window.start_dragging().map_err(|e| e.to_string())?;
