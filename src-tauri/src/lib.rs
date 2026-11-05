@@ -112,81 +112,6 @@ fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
 pub static IS_POPUP_MENU_OPEN: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
-#[cfg(target_os = "windows")]
-unsafe fn is_start_menu_or_flyout_open() -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{GetClassNameW, GetForegroundWindow};
-
-    // Check if the active foreground window belongs to Start Menu or Windows Shell light-dismiss flyouts.
-    // In Windows, light-dismiss windows (Start Menu, Action Center, Quick Settings) only exist
-    // while they are in the active foreground. When closed, background CoreWindows remain created
-    // and reported as WS_VISIBLE by Win32, so we strictly check GetForegroundWindow to prevent
-    // false positives that permanently block the taskbar guard.
-    let fg = GetForegroundWindow();
-    if fg.0.is_null() {
-        return false;
-    }
-
-    let mut class_buf = [0u16; 64];
-    let len = GetClassNameW(fg, &mut class_buf) as usize;
-    if len > 0 {
-        let class_name = String::from_utf16_lossy(&class_buf[..len]);
-        if class_name.contains("Windows.UI.Core.CoreWindow")
-            || class_name.contains("StartMenuExperienceHost")
-            || class_name.contains("XamlExplorerHostIslandWindow")
-            || class_name.contains("Shell_LightDismissOverlay")
-            || class_name.contains("TopLevelWindowForOverflowXamlIsland")
-        {
-            return true;
-        }
-    }
-
-    false
-}
-
-#[cfg(target_os = "windows")]
-unsafe fn is_island_covered_by_taskbar(island_hwnd: windows::Win32::Foundation::HWND) -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{
-        FindWindowW, GetClassNameW, GetWindow, IsWindowVisible, GW_HWNDPREV,
-    };
-    use windows::core::{w, PCWSTR};
-
-    let tray = FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()).unwrap_or_default();
-    let sec_tray = FindWindowW(w!("Shell_SecondaryTrayWnd"), PCWSTR::null()).unwrap_or_default();
-
-    let mut curr = island_hwnd;
-    let mut depth = 0;
-    while depth < 250 {
-        depth += 1;
-        match GetWindow(curr, GW_HWNDPREV) {
-            Ok(above) => {
-                if above.0.is_null() {
-                    break;
-                }
-                if (!tray.0.is_null() && above == tray)
-                    || (!sec_tray.0.is_null() && above == sec_tray)
-                {
-                    return true;
-                }
-                if IsWindowVisible(above).as_bool() {
-                    let mut class_buf = [0u16; 64];
-                    let len = GetClassNameW(above, &mut class_buf) as usize;
-                    if len > 0 {
-                        let class_name = String::from_utf16_lossy(&class_buf[..len]);
-                        if class_name.contains("Shell_TrayWnd")
-                            || class_name.contains("Shell_SecondaryTrayWnd")
-                        {
-                            return true;
-                        }
-                    }
-                }
-                curr = above;
-            }
-            Err(_) => break,
-        }
-    }
-    false
-}
-
 pub fn ensure_always_on_top(window: &Window) {
     if IS_POPUP_MENU_OPEN.load(std::sync::atomic::Ordering::Relaxed) {
         return;
@@ -197,16 +122,17 @@ pub fn ensure_always_on_top(window: &Window) {
     {
         use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::{
-            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
+            GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_EXSTYLE, HWND_TOPMOST, SWP_NOACTIVATE,
+            SWP_NOMOVE, SWP_NOSIZE, WS_EX_TOPMOST,
         };
 
-        unsafe {
-            if is_start_menu_or_flyout_open() {
-                return;
-            }
-
-            if let Ok(hwnd_ptr) = window.hwnd() {
+        if let Ok(hwnd_ptr) = window.hwnd() {
+            unsafe {
                 let hwnd = HWND(hwnd_ptr.0);
+                let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+                if (ex_style & (WS_EX_TOPMOST.0 as i32)) == 0 {
+                    let _ = SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style | (WS_EX_TOPMOST.0 as i32));
+                }
                 let _ = SetWindowPos(
                     hwnd,
                     HWND_TOPMOST,
@@ -214,7 +140,7 @@ pub fn ensure_always_on_top(window: &Window) {
                     0,
                     0,
                     0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
                 );
             }
         }
@@ -222,43 +148,7 @@ pub fn ensure_always_on_top(window: &Window) {
 }
 
 pub fn ensure_above_taskbar(window: &Window) {
-    if IS_POPUP_MENU_OPEN.load(std::sync::atomic::Ordering::Relaxed) {
-        return;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        use windows::Win32::Foundation::HWND;
-        use windows::Win32::UI::WindowsAndMessaging::{
-            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
-        };
-
-        unsafe {
-            if is_start_menu_or_flyout_open() {
-                return;
-            }
-
-            if let Ok(hwnd_ptr) = window.hwnd() {
-                let hwnd = HWND(hwnd_ptr.0);
-                if is_island_covered_by_taskbar(hwnd) {
-                    let _ = window.set_always_on_top(true);
-                    let _ = SetWindowPos(
-                        hwnd,
-                        HWND_TOPMOST,
-                        0,
-                        0,
-                        0,
-                        0,
-                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
-                    );
-                }
-            }
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = window;
-    }
+    ensure_always_on_top(window);
 }
 
 #[tauri::command]
@@ -663,6 +553,11 @@ pub fn run() {
     tauri::Builder::default()
         .manage(state)
         .plugin(tauri_plugin_opener::init())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(_) = event {
+                ensure_always_on_top(window);
+            }
+        })
         .on_menu_event(|app, event| {
             match event.id().as_ref() {
                 "dashboard" => {
