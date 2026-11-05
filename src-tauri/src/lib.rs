@@ -6,7 +6,7 @@ use lyrics::{LyricsData, LyricsState};
 use media::{MediaManager, MediaSessionInfo};
 use monitor::{MonitorState, SystemMetrics};
 use std::sync::Arc;
-use tauri::{Emitter, Manager, State, Window};
+use tauri::{menu::MenuBuilder, Emitter, Manager, State, Window};
 
 struct AppState {
     monitor: Arc<MonitorState>,
@@ -87,7 +87,7 @@ fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
     })
 }
 
-fn ensure_always_on_top(window: &Window) {
+pub fn ensure_always_on_top(window: &Window) {
     let _ = window.set_always_on_top(true);
 
     #[cfg(target_os = "windows")]
@@ -112,6 +112,59 @@ fn ensure_always_on_top(window: &Window) {
             }
         }
     }
+}
+
+#[tauri::command]
+fn force_topmost(window: Window) {
+    ensure_always_on_top(&window);
+}
+
+#[tauri::command]
+fn show_context_menu(window: Window) -> Result<(), String> {
+    let menu = MenuBuilder::new(&window)
+        .text("dashboard", "Toggle Dashboard")
+        .text("stats", "Toggle Hardware Stats")
+        .text("reset", "Reset Position")
+        .separator()
+        .text("exit", "Quit AetherIsland")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    window.popup_menu(&menu).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn exit_app(app_handle: tauri::AppHandle) {
+    app_handle.exit(0);
+}
+
+#[tauri::command]
+fn reset_island_position(window: Window) -> Result<(), String> {
+    let scale_factor = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0);
+
+    let screen = get_monitor_screen_bounds(&window).unwrap_or(ScreenBounds {
+        left: 0.0,
+        top: 0.0,
+        right: 1920.0,
+        bottom: 1080.0,
+    });
+    let screen_w = screen.right - screen.left;
+    let current_size = window.outer_size().unwrap_or_default();
+    let cur_w = current_size.width as f64 / scale_factor;
+
+    let target_x = screen.left + (screen_w - cur_w) / 2.0;
+    let target_y = screen.top;
+
+    let _ = window.set_position(tauri::LogicalPosition::new(target_x, target_y));
+    let _ = window.emit("edge-snap-status", "top");
+    ensure_always_on_top(&window);
+    Ok(())
 }
 
 fn snap_window_to_edges(window: &Window) -> String {
@@ -346,6 +399,25 @@ pub fn run() {
     tauri::Builder::default()
         .manage(state)
         .plugin(tauri_plugin_opener::init())
+        .on_menu_event(|app, event| {
+            match event.id().as_ref() {
+                "dashboard" => {
+                    let _ = app.emit("menu-toggle-dashboard", ());
+                }
+                "stats" => {
+                    let _ = app.emit("menu-toggle-stats", ());
+                }
+                "reset" => {
+                    if let Some(win) = app.get_webview_window("main") {
+                        let _ = reset_island_position(win.as_ref().window().clone());
+                    }
+                }
+                "exit" => {
+                    app.exit(0);
+                }
+                _ => {}
+            }
+        })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Moved(pos) = event {
                 let scale_factor = window
@@ -409,6 +481,10 @@ pub fn run() {
             snap_island,
             get_is_notch,
             get_dock_status,
+            force_topmost,
+            show_context_menu,
+            exit_app,
+            reset_island_position,
         ])
         .run(tauri::generate_context!())
         .expect("error while running AetherIsland application");

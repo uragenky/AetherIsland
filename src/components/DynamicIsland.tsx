@@ -17,6 +17,7 @@ import {
   Music2,
   Disc,
   Minimize2,
+  X,
   Cpu,
   MemoryStick,
   Gpu,
@@ -84,8 +85,18 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       }
     });
 
+    const unlistenDashboard = listen('menu-toggle-dashboard', () => {
+      setMode((prev) => (prev === 'compact' ? 'expanded' : 'compact'));
+    });
+
+    const unlistenStats = listen('menu-toggle-stats', () => {
+      setShowIdleStats((prev) => !prev);
+    });
+
     return () => {
       unlistenSnap.then((f) => f());
+      unlistenDashboard.then((f) => f());
+      unlistenStats.then((f) => f());
     };
   }, []);
 
@@ -198,6 +209,13 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           stiffness: 420,
           damping: 30,
           mass: 0.8,
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          invoke('show_context_menu').catch(() => {});
+        }}
+        onPointerEnter={() => {
+          invoke('force_topmost').catch(() => {});
         }}
         style={{
           backgroundColor: '#000000',
@@ -369,33 +387,33 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   e.stopPropagation();
                   toggleExpand();
                 }}
-                className="flex-1 min-w-0 flex items-center justify-center gap-2 text-[10px] font-mono text-neutral-300 select-none overflow-hidden cursor-grab active:cursor-grabbing px-1"
-                title="Drag to reposition, double-click for full dashboard"
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 text-[10px] font-mono text-neutral-300 select-none overflow-hidden cursor-grab active:cursor-grabbing px-1"
+                title="Drag to reposition, double-click for full dashboard, right-click for menu"
               >
                 {/* CPU */}
-                <div className="flex items-center gap-1" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
+                <div className="flex items-center gap-1 w-[46px] flex-shrink-0" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
                   <Cpu className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                  <span className={metrics.cpu_usage > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
+                  <span className={`tabular-nums text-left ${metrics.cpu_usage > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                     {metrics.cpu_usage.toFixed(0)}%
                   </span>
                 </div>
 
-                <span className="text-neutral-700">•</span>
+                <span className="text-neutral-700 flex-shrink-0">•</span>
 
                 {/* RAM (MemoryStick Icon) */}
-                <div className="flex items-center gap-1" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
+                <div className="flex items-center gap-1 w-[46px] flex-shrink-0" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
                   <MemoryStick className="w-3 h-3 text-sky-400 flex-shrink-0" />
-                  <span className={metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
+                  <span className={`tabular-nums text-left ${metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                     {metrics.ram_percentage.toFixed(0)}%
                   </span>
                 </div>
 
-                <span className="text-neutral-700">•</span>
+                <span className="text-neutral-700 flex-shrink-0">•</span>
 
                 {/* GPU (Gpu Icon) */}
-                <div className="flex items-center gap-1" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
+                <div className="flex items-center gap-1 w-[46px] flex-shrink-0" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
                   <Gpu className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                  <span className={(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
+                  <span className={`tabular-nums text-left ${(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                     {(metrics.gpu_usage ?? 0).toFixed(0)}%
                   </span>
                 </div>
@@ -403,9 +421,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 {/* Dynamic Battery Indicator */}
                 {hasBattery && (
                   <>
-                    <span className="text-neutral-700">•</span>
+                    <span className="text-neutral-700 flex-shrink-0">•</span>
                     <div
-                      className="flex items-center gap-1"
+                      className="flex items-center gap-1 w-[48px] flex-shrink-0"
                       title={metrics.is_charging ? `Charging: ${metrics.battery_percentage}%` : `Battery: ${metrics.battery_percentage}%`}
                     >
                       {metrics.is_charging ? (
@@ -417,24 +435,24 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                       ) : (
                         <BatteryLow className="w-3 h-3 text-rose-400 flex-shrink-0" />
                       )}
-                      <span className={(metrics.battery_percentage ?? 100) <= 20 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}>
+                      <span className={`tabular-nums text-left ${(metrics.battery_percentage ?? 100) <= 20 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                         {metrics.battery_percentage}%
                       </span>
                     </div>
                   </>
                 )}
 
-                <span className="text-neutral-700">•</span>
+                <span className="text-neutral-700 flex-shrink-0">•</span>
 
                 {/* Bandwidth Download & Upload */}
-                <div className="flex items-center gap-1.5 font-semibold">
-                  <span className="flex items-center gap-0.5 text-emerald-300" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
+                <div className="flex items-center gap-1 font-semibold flex-shrink-0">
+                  <span className="flex items-center gap-0.5 text-emerald-300 w-[44px] flex-shrink-0" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
                     <ArrowDown className="w-2.5 h-2.5 flex-shrink-0" />
-                    <span>{formatSpeed(metrics.net_download_kbps)}</span>
+                    <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_download_kbps)}</span>
                   </span>
-                  <span className="flex items-center gap-0.5 text-sky-300" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
+                  <span className="flex items-center gap-0.5 text-sky-300 w-[44px] flex-shrink-0" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
                     <ArrowUp className="w-2.5 h-2.5 flex-shrink-0" />
-                    <span>{formatSpeed(metrics.net_upload_kbps)}</span>
+                    <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_upload_kbps)}</span>
                   </span>
                 </div>
               </div>
@@ -554,6 +572,14 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                     title="Minimize Island"
                   >
                     <Minimize2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    onClick={() => invoke('exit_app')}
+                    className="p-1 text-neutral-400 hover:text-rose-400 hover:bg-rose-500/20 rounded-full transition-colors cursor-pointer ml-0.5"
+                    title="Quit AetherIsland"
+                  >
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

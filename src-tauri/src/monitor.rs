@@ -151,17 +151,25 @@ impl MonitorState {
 }
 
 pub fn start_monitor_thread(app_handle: AppHandle, state: Arc<MonitorState>) {
+    // Dedicated Win32 HWND_TOPMOST guard loop (300ms) to prevent Windows taskbar from ever burying the island
+    let app_topmost = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(300));
+        loop {
+            interval.tick().await;
+            if let Some(win) = app_topmost.get_webview_window("main") {
+                crate::ensure_always_on_top(&win.as_ref().window());
+            }
+        }
+    });
+
+    // System metrics collection loop (1500ms)
     tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(1500));
         loop {
             interval.tick().await;
             let metrics = state.collect_metrics();
             let _ = app_handle.emit("system-metrics", &metrics);
-
-            // Re-assert always_on_top to ensure Windows taskbar never buries the island
-            if let Some(win) = app_handle.get_webview_window("main") {
-                let _ = win.set_always_on_top(true);
-            }
         }
     });
 }
