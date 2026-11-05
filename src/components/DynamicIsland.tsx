@@ -122,7 +122,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           if (isMediaActive) {
             await invoke('set_island_window_size', { width: 370.0, height: 38.0, yOffset: 0.0 });
           } else if (showIdleStats) {
-            await invoke('set_island_window_size', { width: 242.0, height: 38.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: 275.0, height: 38.0, yOffset: 0.0 });
           } else {
             await invoke('set_island_window_size', { width: 84.0, height: 36.0, yOffset: 0.0 });
           }
@@ -241,7 +241,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             ? isMediaActive
               ? 'px-3 py-1 flex items-center justify-between w-[370px] h-[38px]'
               : showIdleStats
-              ? 'px-3 py-1 flex items-center justify-between w-[240px] h-[38px]'
+              ? 'px-3 py-1 flex items-center justify-between w-[275px] h-[38px]'
               : 'px-2 py-1 flex items-center justify-center w-[84px] h-[36px]'
             : 'p-3.5 w-[430px] h-[276px] flex flex-col justify-between'
         }`}
@@ -411,10 +411,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -3 }}
                       transition={{ duration: 0.18 }}
-                      className="flex items-center justify-center gap-1.5 w-full flex-shrink-0"
+                      className="flex items-center justify-center gap-2 w-full flex-shrink-0"
                     >
                       {/* CPU */}
-                      <div className="flex items-center gap-1 w-[44px] flex-shrink-0" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
+                      <div className="flex items-center gap-1 w-[46px] flex-shrink-0" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
                         <Cpu className="w-3 h-3 text-emerald-400 flex-shrink-0" />
                         <span className={`tabular-nums text-left ${metrics.cpu_usage > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                           {metrics.cpu_usage.toFixed(0)}%
@@ -424,7 +424,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                       <span className="text-neutral-700 flex-shrink-0">•</span>
 
                       {/* RAM */}
-                      <div className="flex items-center gap-1 w-[44px] flex-shrink-0" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
+                      <div className="flex items-center gap-1 w-[46px] flex-shrink-0" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
                         <MemoryStick className="w-3 h-3 text-sky-400 flex-shrink-0" />
                         <span className={`tabular-nums text-left ${metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                           {metrics.ram_percentage.toFixed(0)}%
@@ -434,7 +434,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                       <span className="text-neutral-700 flex-shrink-0">•</span>
 
                       {/* GPU */}
-                      <div className="flex items-center gap-1 w-[44px] flex-shrink-0" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
+                      <div className="flex items-center gap-1 w-[46px] flex-shrink-0" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
                         <Gpu className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                         <span className={`tabular-nums text-left ${(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                           {(metrics.gpu_usage ?? 0).toFixed(0)}%
@@ -448,13 +448,13 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -3 }}
                       transition={{ duration: 0.18 }}
-                      className="flex items-center justify-center gap-1.5 w-full flex-shrink-0"
+                      className="flex items-center justify-center gap-2 w-full flex-shrink-0"
                     >
                       {/* Battery Indicator (if present) */}
                       {hasBattery && (
                         <>
                           <div
-                            className="flex items-center gap-1 w-[46px] flex-shrink-0"
+                            className="flex items-center gap-1 w-[48px] flex-shrink-0"
                             title={metrics.is_charging ? `Charging: ${metrics.battery_percentage}%` : `Battery: ${metrics.battery_percentage}%`}
                           >
                             {metrics.is_charging ? (
@@ -475,12 +475,12 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                       )}
 
                       {/* Bandwidth Download & Upload */}
-                      <div className="flex items-center gap-1 font-semibold flex-shrink-0">
-                        <span className="flex items-center gap-0.5 text-emerald-300 w-[44px] flex-shrink-0" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
+                      <div className="flex items-center gap-2 font-semibold flex-shrink-0">
+                        <span className="flex items-center gap-0.5 text-emerald-300 w-[46px] flex-shrink-0" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
                           <ArrowDown className="w-2.5 h-2.5 flex-shrink-0" />
                           <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_download_kbps)}</span>
                         </span>
-                        <span className="flex items-center gap-0.5 text-sky-300 w-[44px] flex-shrink-0" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
+                        <span className="flex items-center gap-0.5 text-sky-300 w-[46px] flex-shrink-0" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
                           <ArrowUp className="w-2.5 h-2.5 flex-shrink-0" />
                           <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_upload_kbps)}</span>
                         </span>
