@@ -53,15 +53,8 @@ impl MediaManager {
         }
 
         let mut curr = self.current.lock().unwrap();
-        curr.is_playing = !curr.is_playing;
-        if curr.is_playing && curr.title.is_empty() {
-            curr.has_media = true;
-            curr.title = "Cruel Summer".to_string();
-            curr.artist = "Taylor Swift".to_string();
-            curr.album = "Lover".to_string();
-            curr.cover_url = Some("https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80".to_string());
-            curr.position_ms = 45000;
-            curr.duration_ms = 178000;
+        if curr.has_media {
+            curr.is_playing = !curr.is_playing;
         }
         curr.clone()
     }
@@ -74,10 +67,6 @@ impl MediaManager {
 
         let mut curr = self.current.lock().unwrap();
         curr.position_ms = 0;
-        curr.title = "Starboy".to_string();
-        curr.artist = "The Weeknd".to_string();
-        curr.album = "Starboy".to_string();
-        curr.duration_ms = 230000;
         curr.clone()
     }
 
@@ -89,10 +78,6 @@ impl MediaManager {
 
         let mut curr = self.current.lock().unwrap();
         curr.position_ms = 0;
-        curr.title = "Blinding Lights".to_string();
-        curr.artist = "The Weeknd".to_string();
-        curr.album = "After Hours".to_string();
-        curr.duration_ms = 200000;
         curr.clone()
     }
 
