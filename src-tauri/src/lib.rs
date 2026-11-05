@@ -111,6 +111,26 @@ fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
 
 pub static IS_POPUP_MENU_OPEN: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
+pub static IS_TRANSPARENT_MODE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+pub static IS_INTERACTIVE_OVERRIDE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+pub static LAST_CURSOR_IGNORED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(target_os = "windows")]
+extern "system" {
+    fn GetAsyncKeyState(v_key: i32) -> i16;
+}
+
+pub fn is_alt_key_pressed() -> bool {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        (GetAsyncKeyState(0x12) as u16 & 0x8000) != 0
+    }
+    #[cfg(not(target_os = "windows"))]
+    false
+}
 
 pub fn ensure_always_on_top(window: &Window) {
     if IS_POPUP_MENU_OPEN.load(std::sync::atomic::Ordering::Relaxed) {
@@ -166,7 +186,11 @@ pub struct VisibleStatsConfig {
 }
 
 #[tauri::command]
-fn show_context_menu(window: Window, config: Option<VisibleStatsConfig>) -> Result<(), String> {
+fn show_context_menu(
+    window: Window,
+    config: Option<VisibleStatsConfig>,
+    transparent_mode: Option<bool>,
+) -> Result<(), String> {
     IS_POPUP_MENU_OPEN.store(true, std::sync::atomic::Ordering::SeqCst);
     let cfg = config.unwrap_or(VisibleStatsConfig {
         cpu: true,
@@ -175,6 +199,15 @@ fn show_context_menu(window: Window, config: Option<VisibleStatsConfig>) -> Resu
         battery: true,
         net: true,
     });
+    let is_transparent = transparent_mode.unwrap_or_else(|| {
+        IS_TRANSPARENT_MODE.load(std::sync::atomic::Ordering::Relaxed)
+    });
+
+    let check_ghost = CheckMenuItemBuilder::new("Ghost / Transparent Mode (Alt to Interact)")
+        .id("toggle_ghost")
+        .checked(is_transparent)
+        .build(&window)
+        .map_err(|e| e.to_string())?;
 
     let check_cpu = CheckMenuItemBuilder::new("CPU Usage")
         .id("toggle_cpu")
@@ -218,6 +251,7 @@ fn show_context_menu(window: Window, config: Option<VisibleStatsConfig>) -> Resu
     let menu = MenuBuilder::new(&window)
         .text("dashboard", "Toggle Dashboard")
         .text("stats", "Toggle Hardware Stats")
+        .item(&check_ghost)
         .item(&stats_submenu)
         .text("reset", "Reset Position")
         .separator()
@@ -235,6 +269,24 @@ fn show_context_menu(window: Window, config: Option<VisibleStatsConfig>) -> Resu
         IS_POPUP_MENU_OPEN.store(false, std::sync::atomic::Ordering::SeqCst);
     });
     res.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_transparent_mode(window: Window, enabled: bool) {
+    IS_TRANSPARENT_MODE.store(enabled, std::sync::atomic::Ordering::SeqCst);
+    if !enabled {
+        let _ = window.set_ignore_cursor_events(false);
+        LAST_CURSOR_IGNORED.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+#[tauri::command]
+fn set_interactive_override(window: Window, active: bool) {
+    IS_INTERACTIVE_OVERRIDE.store(active, std::sync::atomic::Ordering::SeqCst);
+    if active {
+        let _ = window.set_ignore_cursor_events(false);
+        LAST_CURSOR_IGNORED.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 #[tauri::command]
@@ -581,6 +633,9 @@ pub fn run() {
                 "toggle_net" => {
                     let _ = app.emit("menu-toggle-stat", "net");
                 }
+                "toggle_ghost" => {
+                    let _ = app.emit("menu-toggle-ghost", ());
+                }
                 "reset" => {
                     if let Some(win) = app.get_webview_window("main") {
                         let _ = reset_island_position(win.as_ref().window().clone());
@@ -631,6 +686,8 @@ pub fn run() {
             get_dock_status,
             force_topmost,
             show_context_menu,
+            set_transparent_mode,
+            set_interactive_override,
             exit_app,
             reset_island_position,
             change_volume,

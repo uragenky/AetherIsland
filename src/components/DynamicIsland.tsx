@@ -18,6 +18,7 @@ import {
   Activity,
   Music2,
   Disc,
+  Ghost,
   Minimize2,
   Cpu,
   MemoryStick,
@@ -83,6 +84,17 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     } catch {}
     return DEFAULT_VISIBLE_STATS;
   });
+
+  // Persistent Transparent / Ghost mode
+  const [isTransparentMode, setIsTransparentMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('aether_transparent_mode');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [isAltHeld, setIsAltHeld] = useState<boolean>(false);
 
   const handleToggleStat = (key: keyof VisibleStatsConfig) => {
     setVisibleStats((prev) => {
@@ -165,13 +177,36 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       }
     });
 
+    const unlistenGhost = listen('menu-toggle-ghost', () => {
+      setIsTransparentMode((prev) => !prev);
+    });
+
+    const unlistenAlt = listen<boolean>('ghost-alt-state', (event) => {
+      setIsAltHeld(Boolean(event.payload));
+    });
+
     return () => {
       unlistenSnap.then((f) => f());
       unlistenDashboard.then((f) => f());
       unlistenStats.then((f) => f());
       unlistenMenuStat.then((f) => f());
+      unlistenGhost.then((f) => f());
+      unlistenAlt.then((f) => f());
     };
   }, []);
+
+  // Sync transparent mode with persistent storage and native OS backend
+  useEffect(() => {
+    try {
+      localStorage.setItem('aether_transparent_mode', String(isTransparentMode));
+    } catch {}
+    invoke('set_transparent_mode', { enabled: isTransparentMode }).catch(() => {});
+  }, [isTransparentMode]);
+
+  // Keep expanded dashboard interactable without requiring Alt hold
+  useEffect(() => {
+    invoke('set_interactive_override', { active: mode === 'expanded' }).catch(() => {});
+  }, [mode]);
 
   // Dynamically resize and re-center OS native window when mode changes
   useEffect(() => {
@@ -304,6 +339,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
   const [isHovered, setIsHovered] = useState(false);
 
+  // In transparent mode, hover actions only activate if Alt is held down (or if window is expanded)
+  const effectiveHovered = isTransparentMode && mode === 'compact' ? (isAltHeld && isHovered) : isHovered;
+
   const pillWidth =
     mode === 'compact'
       ? isMediaActive
@@ -314,27 +352,42 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       : 430;
   const pillHeight = mode === 'compact' ? 38 : 276;
 
+  // Background color for Solid vs Transparent/Ghost
+  const pillBgColor = isTransparentMode
+    ? isAltHeld
+      ? 'rgba(15, 23, 42, 0.85)'
+      : 'rgba(10, 10, 10, 0.40)'
+    : '#000000';
+
   // Floating outline brightness (Restored to original level: 0.30 idle, 0.55 hover)
-  const floatingOutlineColor = isMediaActive
-    ? isHovered
+  const floatingOutlineColor = isTransparentMode
+    ? isAltHeld
+      ? 'rgba(56, 189, 248, 0.65)'
+      : 'rgba(255, 255, 255, 0.16)'
+    : isMediaActive
+    ? effectiveHovered
       ? 'rgba(56, 189, 248, 0.75)'
       : 'rgba(56, 189, 248, 0.42)'
     : metrics.cpu_usage > 80
-    ? isHovered
+    ? effectiveHovered
       ? 'rgba(251, 113, 133, 0.75)'
       : 'rgba(251, 113, 133, 0.42)'
-    : isHovered
+    : effectiveHovered
     ? 'rgba(255, 255, 255, 0.55)'
     : 'rgba(255, 255, 255, 0.30)';
 
-  // Docked outline: Hidden by default when idle, only shows on hover or high CPU alert
-  const showDockedOutline = isHovered || metrics.cpu_usage > 80;
+  // Docked outline: Hidden by default when idle, shows on hover, high CPU alert, or subtle frosted edge in transparent mode
+  const showDockedOutline = effectiveHovered || metrics.cpu_usage > 80;
   const dockedStrokeColor = showDockedOutline
     ? metrics.cpu_usage > 80
       ? 'rgba(251, 113, 133, 0.65)'
       : isMediaActive
       ? 'rgba(56, 189, 248, 0.65)'
       : 'rgba(255, 255, 255, 0.45)'
+    : isTransparentMode
+    ? isAltHeld
+      ? 'rgba(56, 189, 248, 0.45)'
+      : 'rgba(255, 255, 255, 0.12)'
     : 'transparent';
 
   // Continuous vector path for docked modes (ears + body silhouette)
@@ -397,9 +450,15 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         onWheel={handleWheel}
         onContextMenu={(e) => {
           e.preventDefault();
-          invoke('show_context_menu', { config: visibleStats }).catch(() => {});
+          invoke('show_context_menu', {
+            config: visibleStats,
+            transparentMode: isTransparentMode,
+          }).catch(() => {});
         }}
         onPointerEnter={() => {
+          if (isTransparentMode && !isAltHeld && mode === 'compact') {
+            return;
+          }
           setIsHovered(true);
           invoke('force_topmost').catch(() => {});
         }}
@@ -407,7 +466,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           setIsHovered(false);
         }}
         style={{
-          backgroundColor: '#000000',
+          backgroundColor: pillBgColor,
+          backdropFilter: isTransparentMode ? 'blur(16px) saturate(180%)' : 'none',
+          WebkitBackdropFilter: isTransparentMode ? 'blur(16px) saturate(180%)' : 'none',
           width: `${pillWidth}px`,
           height: `${pillHeight}px`,
           border: isFloating ? `1px solid ${floatingOutlineColor}` : 'none',
@@ -419,11 +480,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             ? 'none'
             : metrics.cpu_usage > 80
             ? 'inset 0 0 16px rgba(251, 113, 133, 0.18)'
-            : isHovered
+            : effectiveHovered
             ? 'inset 0 0 12px rgba(255, 255, 255, 0.08)'
             : 'none',
         }}
-        className="relative bg-black flex items-center justify-center select-none"
+        className={`relative ${isTransparentMode ? 'backdrop-blur-md' : 'bg-black'} flex items-center justify-center select-none`}
       >
         {/* Outward Concave Ear Wings (Docked Mode Only - Pinned to absolute corners with 2px pill overlap to prevent seams) */}
         {!isFloating && (
@@ -437,7 +498,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   viewBox="0 0 16 10"
                   fill="none"
                 >
-                  <path d="M 0 0 C 7.7 0 14 4.5 14 10 L 16 10 L 16 0 Z" fill="#000000" />
+                  <path d="M 0 0 C 7.7 0 14 4.5 14 10 L 16 10 L 16 0 Z" fill={pillBgColor} />
                 </svg>
                 <svg
                   className="absolute -right-[14px] top-0 pointer-events-none select-none z-0"
@@ -446,7 +507,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   viewBox="0 0 16 10"
                   fill="none"
                 >
-                  <path d="M 0 0 L 0 10 L 2 10 C 2 4.5 9.7 0 16 0 Z" fill="#000000" />
+                  <path d="M 0 0 L 0 10 L 2 10 C 2 4.5 9.7 0 16 0 Z" fill={pillBgColor} />
                 </svg>
               </>
             )}
@@ -459,7 +520,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   viewBox="0 0 16 10"
                   fill="none"
                 >
-                  <path d="M 0 10 C 7.7 10 14 5.5 14 0 L 16 0 L 16 10 Z" fill="#000000" />
+                  <path d="M 0 10 C 7.7 10 14 5.5 14 0 L 16 0 L 16 10 Z" fill={pillBgColor} />
                 </svg>
                 <svg
                   className="absolute -right-[14px] bottom-0 pointer-events-none select-none z-0"
@@ -468,7 +529,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   viewBox="0 0 16 10"
                   fill="none"
                 >
-                  <path d="M 0 10 L 0 0 L 2 0 C 2 5.5 9.7 10 16 10 Z" fill="#000000" />
+                  <path d="M 0 10 L 0 0 L 2 0 C 2 5.5 9.7 10 16 10 Z" fill={pillBgColor} />
                 </svg>
               </>
             )}
@@ -871,6 +932,22 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                       </button>
                     </>
                   )}
+
+                  <button
+                    onClick={() => setIsTransparentMode((prev) => !prev)}
+                    className={`p-1 rounded-full transition-colors cursor-pointer active:scale-90 ${
+                      isTransparentMode
+                        ? 'text-cyan-300 hover:text-cyan-100 bg-cyan-500/20'
+                        : 'text-neutral-400 hover:text-white hover:bg-white/10'
+                    }`}
+                    title={
+                      isTransparentMode
+                        ? 'Ghost Mode Active (Transparent / Hold Alt to interact) - Click for Solid Mode'
+                        : 'Solid Mode Active - Click for Ghost Mode'
+                    }
+                  >
+                    <Ghost className="w-3.5 h-3.5" />
+                  </button>
 
                   <button
                     onClick={toggleExpand}

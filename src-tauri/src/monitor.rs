@@ -151,14 +151,54 @@ impl MonitorState {
 }
 
 pub fn start_monitor_thread(app_handle: AppHandle, state: Arc<MonitorState>) {
-    // Dedicated Win32 guard loop (100ms) to unconditionally ensure island stays topmost above all windows & taskbar
+    // Dedicated Win32 guard loop (50ms) for topmost Z-order and Ghost / Pass-through cursor handling
     let app_topmost = app_handle.clone();
     tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(50));
+        let mut last_alt = false;
+        let mut tick: u32 = 0;
         loop {
             interval.tick().await;
+            tick = tick.wrapping_add(1);
+
             if let Some(win) = app_topmost.get_webview_window("main") {
-                crate::ensure_above_taskbar(&win.as_ref().window());
+                let window_ref = win.as_ref().window();
+
+                // Periodic topmost maintenance every 100ms
+                if tick % 2 == 0 {
+                    crate::ensure_above_taskbar(&window_ref);
+                }
+
+                // Ghost / Pass-through cursor handling
+                let is_transparent = crate::IS_TRANSPARENT_MODE.load(std::sync::atomic::Ordering::Relaxed);
+                let is_popup_open = crate::IS_POPUP_MENU_OPEN.load(std::sync::atomic::Ordering::Relaxed);
+                let is_override = crate::IS_INTERACTIVE_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
+
+                if is_transparent && !is_popup_open && !is_override {
+                    let alt_down = crate::is_alt_key_pressed();
+                    let should_ignore = !alt_down;
+
+                    let prev_ignored = crate::LAST_CURSOR_IGNORED.load(std::sync::atomic::Ordering::Relaxed);
+                    if should_ignore != prev_ignored {
+                        let _ = window_ref.set_ignore_cursor_events(should_ignore);
+                        crate::LAST_CURSOR_IGNORED.store(should_ignore, std::sync::atomic::Ordering::Relaxed);
+                    }
+
+                    if alt_down != last_alt {
+                        last_alt = alt_down;
+                        let _ = app_topmost.emit("ghost-alt-state", alt_down);
+                    }
+                } else {
+                    let prev_ignored = crate::LAST_CURSOR_IGNORED.load(std::sync::atomic::Ordering::Relaxed);
+                    if prev_ignored {
+                        let _ = window_ref.set_ignore_cursor_events(false);
+                        crate::LAST_CURSOR_IGNORED.store(false, std::sync::atomic::Ordering::Relaxed);
+                    }
+                    if last_alt {
+                        last_alt = false;
+                        let _ = app_topmost.emit("ghost-alt-state", false);
+                    }
+                }
             }
         }
     });
