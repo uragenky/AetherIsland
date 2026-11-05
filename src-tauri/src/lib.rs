@@ -122,8 +122,29 @@ pub fn ensure_always_on_top(window: &Window) {
     {
         use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::{
-            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+            GetClassNameW, GetForegroundWindow, SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE,
+            SWP_NOMOVE, SWP_NOSIZE,
         };
+
+        // Don't assert topmost over Windows Start Menu, Taskbar, or Shell flyouts
+        unsafe {
+            let fg_hwnd = GetForegroundWindow();
+            if fg_hwnd.0 != 0 {
+                let mut class_buf = [0u16; 128];
+                let len = GetClassNameW(fg_hwnd, &mut class_buf) as usize;
+                if len > 0 {
+                    let class_name = String::from_utf16_lossy(&class_buf[..len]);
+                    if class_name.contains("Windows.UI.Core.CoreWindow")
+                        || class_name.contains("StartMenuExperienceHost")
+                        || class_name.contains("Shell_TrayWnd")
+                        || class_name.contains("Shell_SecondaryTrayWnd")
+                        || class_name.contains("XamlExplorerHostIslandWindow")
+                    {
+                        return;
+                    }
+                }
+            }
+        }
 
         if let Ok(hwnd_ptr) = window.hwnd() {
             unsafe {

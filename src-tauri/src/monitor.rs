@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMetrics {
@@ -151,20 +151,6 @@ impl MonitorState {
 }
 
 pub fn start_monitor_thread(app_handle: AppHandle, state: Arc<MonitorState>) {
-    // Dedicated Win32 HWND_TOPMOST guard loop (300ms) to prevent Windows taskbar from ever burying the island
-    let app_topmost = app_handle.clone();
-    tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(300));
-        loop {
-            interval.tick().await;
-            if !crate::IS_POPUP_MENU_OPEN.load(std::sync::atomic::Ordering::Relaxed) {
-                if let Some(win) = app_topmost.get_webview_window("main") {
-                    crate::ensure_always_on_top(&win.as_ref().window());
-                }
-            }
-        }
-    });
-
     // System metrics collection loop (1500ms)
     tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(1500));

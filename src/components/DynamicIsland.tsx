@@ -177,7 +177,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           } else if (showIdleStats) {
             await invoke('set_island_window_size', { width: statsWidth, height: 38.0, yOffset: 0.0 });
           } else {
-            await invoke('set_island_window_size', { width: 84.0, height: 36.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: 84.0, height: 38.0, yOffset: 0.0 });
           }
         } else {
           await invoke('set_island_window_size', { width: 430.0, height: 276.0, yOffset: 0.0 });
@@ -204,6 +204,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button === 0) {
+      invoke('force_topmost').catch(() => {});
       dragStartRef.current = { x: e.screenX, y: e.screenY, isDown: true };
     }
   };
