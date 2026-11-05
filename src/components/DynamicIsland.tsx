@@ -234,9 +234,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       if (dist > 5) {
         dragStartRef.current.isDown = false;
         setIsDragging(true);
-        invoke('start_window_drag')
-          .then(() => {
-            invoke('snap_island').catch(() => {});
+        invoke<string>('start_window_drag')
+          .then((status) => {
+            if (status === 'top' || status === 'bottom' || status === 'floating') {
+              setDockStatus(status);
+            }
           })
           .catch(() => {})
           .finally(() => {
@@ -271,7 +273,13 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       if (dragStartRef.current?.isDown) {
         dragStartRef.current.isDown = false;
         setTimeout(() => {
-          invoke('snap_island').catch(() => {});
+          invoke<string>('snap_island')
+            .then((status) => {
+              if (status === 'top' || status === 'bottom' || status === 'floating') {
+                setDockStatus(status);
+              }
+            })
+            .catch(() => {});
         }, 35);
       }
     };
@@ -302,18 +310,28 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       : 430;
   const pillHeight = mode === 'compact' ? 38 : 276;
 
-  // Crisp outline color with interactive hover lift
-  const outlineColor = isMediaActive
+  // Floating outline brightness (Restored to original level: 0.30 idle, 0.55 hover)
+  const floatingOutlineColor = isMediaActive
     ? isHovered
-      ? 'rgba(56, 189, 248, 0.90)'
-      : 'rgba(56, 189, 248, 0.50)'
+      ? 'rgba(56, 189, 248, 0.75)'
+      : 'rgba(56, 189, 248, 0.42)'
     : metrics.cpu_usage > 80
     ? isHovered
-      ? 'rgba(251, 113, 133, 0.90)'
-      : 'rgba(251, 113, 133, 0.50)'
+      ? 'rgba(251, 113, 133, 0.75)'
+      : 'rgba(251, 113, 133, 0.42)'
     : isHovered
-    ? 'rgba(255, 255, 255, 0.65)'
-    : 'rgba(255, 255, 255, 0.28)';
+    ? 'rgba(255, 255, 255, 0.55)'
+    : 'rgba(255, 255, 255, 0.30)';
+
+  // Docked outline: Hidden by default when idle, only shows on hover or high CPU alert
+  const showDockedOutline = isHovered || metrics.cpu_usage > 80;
+  const dockedStrokeColor = showDockedOutline
+    ? metrics.cpu_usage > 80
+      ? 'rgba(251, 113, 133, 0.65)'
+      : isMediaActive
+      ? 'rgba(56, 189, 248, 0.65)'
+      : 'rgba(255, 255, 255, 0.45)'
+    : 'transparent';
 
   // Continuous vector path for docked modes (ears + body silhouette)
   const dockedPath = useMemo(() => {
@@ -388,7 +406,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           backgroundColor: '#000000',
           width: `${pillWidth}px`,
           height: `${pillHeight}px`,
-          border: isFloating ? `1px solid ${outlineColor}` : 'none',
+          border: isFloating ? `1px solid ${floatingOutlineColor}` : 'none',
           borderTopLeftRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '19px' : '9999px') : '24px'),
           borderTopRightRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '19px' : '9999px') : '24px'),
           borderBottomLeftRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '19px' : '9999px') : '24px'),
@@ -435,7 +453,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             <path
               d={dockedPath}
               fill="none"
-              stroke={outlineColor}
+              stroke={dockedStrokeColor}
               strokeWidth="1"
               strokeLinecap="round"
               strokeLinejoin="round"

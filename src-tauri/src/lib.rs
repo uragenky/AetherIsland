@@ -85,8 +85,8 @@ pub struct ScreenBounds {
 }
 
 // Tighter magnetic snap attraction threshold (in logical pixels)
-const SNAP_THRESHOLD_TOP: f64 = 32.0;
-const SNAP_THRESHOLD_BOTTOM: f64 = 32.0;
+const SNAP_THRESHOLD_TOP: f64 = 48.0;
+const SNAP_THRESHOLD_BOTTOM: f64 = 48.0;
 const SNAP_THRESHOLD_SIDES: f64 = 28.0;
 const SCREEN_MARGIN_X: f64 = 16.0;
 
@@ -456,7 +456,7 @@ extern "system" {
 }
 
 #[tauri::command]
-async fn start_window_drag(window: Window) -> Result<(), String> {
+async fn start_window_drag(window: Window) -> Result<String, String> {
     window.start_dragging().map_err(|e| e.to_string())?;
 
     #[cfg(target_os = "windows")]
@@ -478,8 +478,8 @@ async fn start_window_drag(window: Window) -> Result<(), String> {
     // Left mouse button has now been released by the user!
     // Allow brief time for Windows DWM drop coordinates to settle
     tokio::time::sleep(std::time::Duration::from_millis(35)).await;
-    snap_window_to_edges(&window);
-    Ok(())
+    let status = snap_window_to_edges(&window);
+    Ok(status)
 }
 
 #[tauri::command]
