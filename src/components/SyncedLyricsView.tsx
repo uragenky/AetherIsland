@@ -13,6 +13,7 @@ interface SyncedLyricsViewProps {
   onPlayPause?: () => void;
   onBack: () => void;
   onLyricsChange?: (data: LyricsData) => void;
+  isGhost?: boolean;
 }
 
 interface ProcessedLyricLine {
@@ -29,6 +30,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   onSeek,
   onPlayPause,
   onLyricsChange,
+  isGhost = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -269,7 +271,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   return (
     <div className="flex flex-col w-full h-full text-white justify-between">
       {/* Sub-toolbar */}
-      <div className="flex items-center justify-between pb-1 border-b border-white/10 mb-1 px-1 flex-shrink-0">
+      <div className={`flex items-center justify-between pb-1 mb-1 px-1 flex-shrink-0 border-b ${isGhost ? 'border-transparent' : 'border-white/10'}`}>
         <div className="flex items-center gap-1.5 text-xs font-medium text-cyan-400">
           <Sparkles className="w-3.5 h-3.5 animate-pulse" />
           <span className="tracking-wide text-[11px]">Live Synced Lyrics</span>
@@ -371,7 +373,11 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
                   onClick={() => handleSelectCandidate(c)}
                   className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition-all active:scale-[0.98] ${
                     isSelected
-                      ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-200'
+                      ? isGhost
+                        ? 'bg-transparent border-transparent text-cyan-200'
+                        : 'bg-cyan-500/20 border-cyan-500/40 text-cyan-200'
+                      : isGhost
+                      ? 'bg-transparent border-transparent hover:bg-white/5 text-neutral-300'
                       : 'bg-white/5 border-white/10 hover:bg-white/10 text-neutral-300'
                   }`}
                 >
@@ -456,9 +462,9 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
                     textShadow: isActive
                       ? '0 0 14px rgba(56, 189, 248, 0.45)'
                       : 'none',
-                    backgroundColor: isActive ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
-                    borderColor: isActive ? 'rgba(56, 189, 248, 0.35)' : 'transparent',
-                    boxShadow: isActive ? 'inset 0 0 12px rgba(56, 189, 248, 0.08)' : 'none',
+                    backgroundColor: isActive && !isGhost ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
+                    borderColor: isActive && !isGhost ? 'rgba(56, 189, 248, 0.35)' : 'transparent',
+                    boxShadow: isActive && !isGhost ? 'inset 0 0 12px rgba(56, 189, 248, 0.08)' : 'none',
                     transition:
                       'transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 260ms ease, color 260ms ease, background-color 260ms ease, border-color 260ms ease, text-shadow 260ms ease',
                     willChange: 'transform, opacity',
@@ -488,7 +494,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
       )}
 
       {/* Bottom Mini Progress Scrubber */}
-      <div className="pt-2 border-t border-white/10 flex items-center gap-2 px-1 text-white select-none flex-shrink-0">
+      <div className={`pt-2 border-t flex items-center gap-2 px-1 text-white select-none flex-shrink-0 ${isGhost ? 'border-transparent' : 'border-white/10'}`}>
         {onPlayPause && (
           <button
             onClick={onPlayPause}

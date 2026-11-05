@@ -7,6 +7,7 @@ interface SystemDashboardProps {
   metrics: SystemMetrics;
   visibleStats?: VisibleStatsConfig;
   onToggleStat?: (key: keyof VisibleStatsConfig) => void;
+  isGhost?: boolean;
 }
 
 const MiniSparkline: React.FC<{ data: number[]; max?: number; color: string }> = ({ data, max = 100, color }) => {
@@ -30,6 +31,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
   metrics,
   visibleStats,
   onToggleStat,
+  isGhost = false,
 }) => {
   const [cpuHistory, setCpuHistory] = useState<number[]>(() => [metrics.cpu_usage]);
   const [ramHistory, setRamHistory] = useState<number[]>(() => [metrics.ram_percentage]);
@@ -59,11 +61,22 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
 
   const gpuVal = metrics.gpu_usage ?? 0;
 
+  const cardClass = isGhost
+    ? 'bg-transparent border-transparent'
+    : 'bg-neutral-900/80 border border-white/10';
+  const interactiveCardClass = isGhost
+    ? cardClass
+    : `${cardClass} hover:border-cyan-500/40 hover:bg-neutral-800/90`;
+
   return (
     <div className="flex flex-col gap-2 w-full text-white pt-0.5">
       {/* Toggle Chips Bar */}
       {visibleStats && onToggleStat && (
-        <div className="flex items-center justify-between pb-1.5 border-b border-white/10 px-0.5 select-none">
+        <div
+          className={`flex items-center justify-between pb-1.5 px-0.5 select-none ${
+            isGhost ? 'border-b border-transparent' : 'border-b border-white/10'
+          }`}
+        >
           <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Island Metrics</span>
           <div className="flex items-center gap-1">
             {(['cpu', 'ram', 'gpu', 'battery', 'net'] as const).map((key) => {
@@ -81,7 +94,11 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
                   onClick={() => onToggleStat(key)}
                   className={`px-2 py-0.5 text-[10px] font-medium rounded-full transition-all border active:scale-95 cursor-pointer ${
                     isActive
-                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 shadow-sm'
+                      ? isGhost
+                        ? 'bg-transparent text-cyan-300 border-transparent'
+                        : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 shadow-sm'
+                      : isGhost
+                      ? 'bg-transparent text-neutral-500 border-transparent hover:text-neutral-300'
                       : 'bg-white/5 text-neutral-500 border-white/5 hover:text-neutral-300 hover:bg-white/10'
                   }`}
                   title={`Toggle ${labels[key]} in compact island`}
@@ -99,7 +116,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
         {/* CPU Metric Card (Clickable -> Task Manager) */}
         <div
           onClick={handleOpenTaskManager}
-          className="flex items-center justify-between bg-neutral-900/80 rounded-xl p-2 border border-white/10 cursor-pointer hover:border-cyan-500/40 hover:bg-neutral-800/90 active:scale-[0.98] transition-all group"
+          className={`flex items-center justify-between rounded-xl p-2 cursor-pointer active:scale-[0.98] transition-all group ${interactiveCardClass}`}
           title="Click to open Windows Task Manager"
         >
           <div className="flex items-center gap-1.5 min-w-0">
@@ -119,7 +136,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
         {/* RAM Metric Card (Clickable -> Task Manager) */}
         <div
           onClick={handleOpenTaskManager}
-          className="flex items-center justify-between bg-neutral-900/80 rounded-xl p-2 border border-white/10 cursor-pointer hover:border-cyan-500/40 hover:bg-neutral-800/90 active:scale-[0.98] transition-all group"
+          className={`flex items-center justify-between rounded-xl p-2 cursor-pointer active:scale-[0.98] transition-all group ${interactiveCardClass}`}
           title="Click to open Windows Task Manager"
         >
           <div className="flex items-center gap-1.5 min-w-0">
@@ -137,7 +154,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
         </div>
 
         {/* GPU Metric Card */}
-        <div className="flex items-center justify-between bg-neutral-900/80 rounded-xl p-2 border border-white/10">
+        <div className={`flex items-center justify-between rounded-xl p-2 border ${cardClass}`}>
           <div className="flex items-center gap-1.5 min-w-0">
             <div className={`p-1.5 rounded-lg ${getMetricColor(gpuVal)} flex-shrink-0`}>
               <Gpu className="w-3.5 h-3.5" />
@@ -153,7 +170,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
         </div>
 
         {/* Network & Battery Status Card */}
-        <div className="flex items-center justify-between col-span-3 bg-neutral-900/80 rounded-xl px-3 py-1.5 border border-white/10 text-xs text-neutral-300">
+        <div className={`flex items-center justify-between col-span-3 rounded-xl px-3 py-1.5 border text-xs text-neutral-300 ${cardClass}`}>
           <div className="flex items-center gap-1.5">
             <ArrowDown className="w-3.5 h-3.5 text-emerald-400" />
             <span className="text-[11px] font-medium font-mono">

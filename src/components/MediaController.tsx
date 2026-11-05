@@ -10,6 +10,7 @@ interface MediaControllerProps {
   onSeek: (positionMs: number) => void;
   onToggleLyrics?: () => void;
   showLyricsButton?: boolean;
+  isGhost?: boolean;
 }
 
 export const MediaController: React.FC<MediaControllerProps> = ({
@@ -20,6 +21,7 @@ export const MediaController: React.FC<MediaControllerProps> = ({
   onSeek,
   onToggleLyrics,
   showLyricsButton = true,
+  isGhost = false,
 }) => {
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -45,7 +47,13 @@ export const MediaController: React.FC<MediaControllerProps> = ({
       {/* Top Info Row */}
       <div className="flex items-center gap-3">
         {/* Cover Art */}
-        <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-neutral-900 flex-shrink-0 shadow-lg border border-white/10 ring-1 ring-white/5">
+        <div
+          className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 ${
+            isGhost
+              ? 'bg-transparent border border-transparent shadow-none ring-0'
+              : 'bg-neutral-900 shadow-lg border border-white/10 ring-1 ring-white/5'
+          }`}
+        >
           {media.cover_url ? (
             <img
               src={media.cover_url}
@@ -53,7 +61,11 @@ export const MediaController: React.FC<MediaControllerProps> = ({
               className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-neutral-500 bg-neutral-800/80">
+            <div
+              className={`w-full h-full flex items-center justify-center text-neutral-500 ${
+                isGhost ? 'bg-transparent' : 'bg-neutral-800/80'
+              }`}
+            >
               <Music className="w-5 h-5 animate-pulse text-cyan-400" />
             </div>
           )}
@@ -86,7 +98,9 @@ export const MediaController: React.FC<MediaControllerProps> = ({
       <div className="flex flex-col gap-1.5 px-0.5">
         <div
           onClick={handleSliderClick}
-          className="w-full h-1.5 bg-neutral-800 rounded-full cursor-pointer relative group overflow-hidden"
+          className={`w-full h-1.5 rounded-full cursor-pointer relative group overflow-hidden ${
+            isGhost ? 'bg-white/15' : 'bg-neutral-800'
+          }`}
         >
           <div
             className="h-full bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 rounded-full relative transition-all"

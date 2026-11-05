@@ -357,19 +357,18 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       : 430;
   const pillHeight = mode === 'compact' ? 38 : 276;
 
-  // Background color for Solid vs Transparent/Ghost
-  const pillBgColor = isTransparentMode
-    ? isAltHeld
-      ? 'rgba(15, 23, 42, 0.85)'
-      : 'rgba(10, 10, 10, 0.40)'
-    : '#000000';
+  // Background color for Solid vs Ghost (100% transparent)
+  const pillBgColor = isTransparentMode ? 'transparent' : '#000000';
 
-  // Floating outline brightness (Restored to original level: 0.30 idle, 0.55 hover)
-  const floatingOutlineColor = isTransparentMode
+  // Content-only affordance for Ghost Mode (no background, no outline)
+  const ghostTextShadow = isTransparentMode
     ? isAltHeld
-      ? 'rgba(56, 189, 248, 0.65)'
-      : 'rgba(255, 255, 255, 0.16)'
-    : isMediaActive
+      ? '0 1px 2px rgba(0,0,0,0.9), 0 0 8px rgba(56,189,248,0.55)'
+      : '0 1px 2px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.5)'
+    : 'none';
+
+  // Floating outline brightness (Solid mode only; Ghost mode has no outline)
+  const floatingOutlineColor = isMediaActive
     ? effectiveHovered
       ? 'rgba(56, 189, 248, 0.75)'
       : 'rgba(56, 189, 248, 0.42)'
@@ -381,7 +380,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     ? 'rgba(255, 255, 255, 0.55)'
     : 'rgba(255, 255, 255, 0.30)';
 
-  // Docked outline: Hidden by default when idle, shows on hover, high CPU alert, or subtle frosted edge in transparent mode
+  // Docked outline: Solid mode only
   const showDockedOutline = effectiveHovered || metrics.cpu_usage > 80;
   const dockedStrokeColor = showDockedOutline
     ? metrics.cpu_usage > 80
@@ -389,10 +388,6 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       : isMediaActive
       ? 'rgba(56, 189, 248, 0.65)'
       : 'rgba(255, 255, 255, 0.45)'
-    : isTransparentMode
-    ? isAltHeld
-      ? 'rgba(56, 189, 248, 0.45)'
-      : 'rgba(255, 255, 255, 0.12)'
     : 'transparent';
 
   // Continuous vector path for docked modes (ears + body silhouette)
@@ -472,16 +467,17 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         }}
         style={{
           backgroundColor: pillBgColor,
-          backdropFilter: isTransparentMode ? 'blur(16px) saturate(180%)' : 'none',
-          WebkitBackdropFilter: isTransparentMode ? 'blur(16px) saturate(180%)' : 'none',
           width: `${pillWidth}px`,
           height: `${pillHeight}px`,
-          border: isFloating ? `1px solid ${floatingOutlineColor}` : 'none',
+          border: isFloating && !isTransparentMode ? `1px solid ${floatingOutlineColor}` : 'none',
           borderTopLeftRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '19px' : '9999px') : '24px'),
           borderTopRightRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '19px' : '9999px') : '24px'),
           borderBottomLeftRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '19px' : '9999px') : '24px'),
           borderBottomRightRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '19px' : '9999px') : '24px'),
-          boxShadow: isMediaActive
+          textShadow: ghostTextShadow,
+          boxShadow: isTransparentMode
+            ? 'none'
+            : isMediaActive
             ? 'none'
             : metrics.cpu_usage > 80
             ? 'inset 0 0 16px rgba(251, 113, 133, 0.18)'
@@ -489,10 +485,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             ? 'inset 0 0 12px rgba(255, 255, 255, 0.08)'
             : 'none',
         }}
-        className={`relative ${isTransparentMode ? 'backdrop-blur-md' : 'bg-black'} flex items-center justify-center select-none`}
+        className={`relative ${isTransparentMode ? '' : 'bg-black'} flex items-center justify-center select-none`}
       >
-        {/* Outward Concave Ear Wings (Docked Mode Only - Pinned to absolute corners with 2px pill overlap to prevent seams) */}
-        {!isFloating && (
+        {/* Outward Concave Ear Wings (Solid mode, docked only) */}
+        {!isFloating && !isTransparentMode && (
           <>
             {isDockTop && (
               <>
@@ -565,7 +561,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.85 }}
               transition={{ duration: 0.12 }}
-              className="absolute inset-0 bg-black/92 rounded-full flex items-center justify-center gap-1.5 text-cyan-300 text-xs font-medium z-50 pointer-events-none border border-cyan-500/40"
+              className={`absolute inset-0 rounded-full flex items-center justify-center gap-1.5 text-cyan-300 text-xs font-medium z-50 pointer-events-none ${
+                isTransparentMode
+                  ? 'bg-transparent border-transparent'
+                  : 'bg-black/92 border border-cyan-500/40'
+              }`}
             >
               <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
               <span className="font-mono text-[11px] tracking-wide">
@@ -731,8 +731,12 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 style={{
                   width: '1.5px',
                   height: '18px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.45)',
-                  boxShadow: '0 0 4px rgba(255, 255, 255, 0.25)',
+                  backgroundColor: isTransparentMode
+                    ? 'rgba(255, 255, 255, 0.22)'
+                    : 'rgba(255, 255, 255, 0.45)',
+                  boxShadow: isTransparentMode
+                    ? 'none'
+                    : '0 0 4px rgba(255, 255, 255, 0.25)',
                   borderRadius: '9999px',
                   marginLeft: '10px',
                   marginRight: '10px',
@@ -870,7 +874,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 onPointerUp={handlePointerUp}
                 className={`flex items-center justify-between ${
                   isDockBottom ? 'pt-2 border-t mt-1.5' : 'pb-2 border-b mb-1.5'
-                } border-white/10 cursor-grab active:cursor-grabbing flex-shrink-0`}
+                } ${isTransparentMode ? 'border-transparent' : 'border-white/10'} cursor-grab active:cursor-grabbing flex-shrink-0`}
                 title="Drag header to move"
               >
                 <div className="flex items-center gap-2 select-none pointer-events-none min-w-0">
@@ -893,13 +897,19 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 </div>
 
                 <div
-                  className="flex items-center gap-1 bg-white/5 rounded-full p-0.5 border border-white/10"
+                  className={`flex items-center gap-1 rounded-full p-0.5 ${
+                    isTransparentMode ? 'bg-transparent border-transparent' : 'bg-white/5 border border-white/10'
+                  }`}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   {mode === 'lyrics' ? (
                     <button
                       onClick={() => setMode('expanded')}
-                      className="px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium shadow-sm active:scale-95"
+                      className={`px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
+                        isTransparentMode
+                          ? 'text-cyan-300'
+                          : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium shadow-sm'
+                      }`}
                     >
                       <Disc className="w-3 h-3" />
                       <span>Player</span>
@@ -913,7 +923,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                         }}
                         className={`px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
                           mode === 'expanded' && activeTab === 'media'
-                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 font-medium shadow-sm'
+                            ? isTransparentMode
+                              ? 'text-cyan-300 border-transparent font-medium'
+                              : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 font-medium shadow-sm'
                             : 'text-neutral-400 hover:text-white hover:bg-white/5 border-transparent'
                         }`}
                       >
@@ -928,7 +940,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                         }}
                         className={`px-2.5 py-1 text-xs rounded-full transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
                           mode === 'expanded' && activeTab === 'system'
-                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 font-medium shadow-sm'
+                            ? isTransparentMode
+                              ? 'text-cyan-300 border-transparent font-medium'
+                              : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 font-medium shadow-sm'
                             : 'text-neutral-400 hover:text-white hover:bg-white/5 border-transparent'
                         }`}
                       >
@@ -942,7 +956,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                     onClick={() => setIsTransparentMode((prev) => !prev)}
                     className={`p-1 rounded-full transition-colors cursor-pointer active:scale-90 ${
                       isTransparentMode
-                        ? 'text-cyan-300 hover:text-cyan-100 bg-cyan-500/20'
+                        ? 'text-cyan-300 hover:text-cyan-100'
                         : 'text-neutral-400 hover:text-white hover:bg-white/10'
                     }`}
                     title={
@@ -975,6 +989,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   onPlayPause={onPlayPause}
                   onBack={() => setMode('expanded')}
                   onLyricsChange={onLyricsChange}
+                  isGhost={isTransparentMode}
                 />
               ) : activeTab === 'media' ? (
                 <MediaController
@@ -985,6 +1000,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   onSeek={onSeek}
                   onToggleLyrics={() => setMode('lyrics')}
                   showLyricsButton={true}
+                  isGhost={isTransparentMode}
                 />
               ) : (
                 <div className="flex flex-col gap-2.5">
@@ -992,9 +1008,16 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                     metrics={metrics}
                     visibleStats={visibleStats}
                     onToggleStat={handleToggleStat}
+                    isGhost={isTransparentMode}
                   />
                   {/* Mini Media Bar inside System Tab */}
-                  <div className="flex items-center justify-between bg-neutral-900/80 rounded-xl px-3 py-2 border border-white/5">
+                  <div
+                    className={`flex items-center justify-between rounded-xl px-3 py-2 ${
+                      isTransparentMode
+                        ? 'bg-transparent border-transparent'
+                        : 'bg-neutral-900/80 border border-white/5'
+                    }`}
+                  >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Music2 className="w-4 h-4 text-cyan-400 flex-shrink-0 animate-pulse" />
                       <div className="flex flex-col min-w-0">
