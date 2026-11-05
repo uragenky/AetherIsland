@@ -112,6 +112,80 @@ fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
 pub static IS_POPUP_MENU_OPEN: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
+#[cfg(target_os = "windows")]
+unsafe fn is_start_menu_or_flyout_open() -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        FindWindowW, GetClassNameW, GetForegroundWindow, IsWindowVisible,
+    };
+    use windows::core::{w, PCWSTR};
+
+    // 1. Check if the active foreground window belongs to Start Menu or Windows Shell flyouts
+    let fg = GetForegroundWindow();
+    if !fg.0.is_null() {
+        let mut class_buf = [0u16; 64];
+        let len = GetClassNameW(fg, &mut class_buf) as usize;
+        if len > 0 {
+            let class_name = String::from_utf16_lossy(&class_buf[..len]);
+            if class_name.contains("Windows.UI.Core.CoreWindow")
+                || class_name.contains("StartMenuExperienceHost")
+                || class_name.contains("XamlExplorerHostIslandWindow")
+                || class_name.contains("Shell_LightDismissOverlay")
+            {
+                return true;
+            }
+        }
+    }
+
+    // 2. Check if the Windows Shell light-dismiss overlay is active
+    if let Ok(overlay) = FindWindowW(w!("Shell_LightDismissOverlay"), PCWSTR::null()) {
+        if !overlay.0.is_null() && IsWindowVisible(overlay).as_bool() {
+            return true;
+        }
+    }
+
+    // 3. Check if Start Menu CoreWindow is visible
+    if let Ok(start) = FindWindowW(w!("Windows.UI.Core.CoreWindow"), w!("Start")) {
+        if !start.0.is_null() && IsWindowVisible(start).as_bool() {
+            return true;
+        }
+    }
+
+    false
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn is_island_covered_by_taskbar(island_hwnd: windows::Win32::Foundation::HWND) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetClassNameW, GetWindow, IsWindowVisible, GW_HWNDPREV,
+    };
+
+    let mut curr = island_hwnd;
+    let mut depth = 0;
+    while depth < 50 {
+        depth += 1;
+        match GetWindow(curr, GW_HWNDPREV) {
+            Ok(above) => {
+                if above.0.is_null() {
+                    break;
+                }
+                if IsWindowVisible(above).as_bool() {
+                    let mut class_buf = [0u16; 64];
+                    let len = GetClassNameW(above, &mut class_buf) as usize;
+                    if len > 0 {
+                        let class_name = String::from_utf16_lossy(&class_buf[..len]);
+                        if class_name == "Shell_TrayWnd" || class_name == "Shell_SecondaryTrayWnd" {
+                            return true;
+                        }
+                    }
+                }
+                curr = above;
+            }
+            Err(_) => break,
+        }
+    }
+    false
+}
+
 pub fn ensure_always_on_top(window: &Window) {
     if IS_POPUP_MENU_OPEN.load(std::sync::atomic::Ordering::Relaxed) {
         return;
@@ -122,32 +196,15 @@ pub fn ensure_always_on_top(window: &Window) {
     {
         use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::{
-            GetClassNameW, GetForegroundWindow, SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE,
-            SWP_NOMOVE, SWP_NOSIZE,
+            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
         };
 
-        // Don't assert topmost over Windows Start Menu, Taskbar, or Shell flyouts
         unsafe {
-            let fg_hwnd = GetForegroundWindow();
-            if !fg_hwnd.0.is_null() {
-                let mut class_buf = [0u16; 128];
-                let len = GetClassNameW(fg_hwnd, &mut class_buf) as usize;
-                if len > 0 {
-                    let class_name = String::from_utf16_lossy(&class_buf[..len]);
-                    if class_name.contains("Windows.UI.Core.CoreWindow")
-                        || class_name.contains("StartMenuExperienceHost")
-                        || class_name.contains("Shell_TrayWnd")
-                        || class_name.contains("Shell_SecondaryTrayWnd")
-                        || class_name.contains("XamlExplorerHostIslandWindow")
-                    {
-                        return;
-                    }
-                }
+            if is_start_menu_or_flyout_open() {
+                return;
             }
-        }
 
-        if let Ok(hwnd_ptr) = window.hwnd() {
-            unsafe {
+            if let Ok(hwnd_ptr) = window.hwnd() {
                 let hwnd = HWND(hwnd_ptr.0);
                 let _ = SetWindowPos(
                     hwnd,
@@ -156,10 +213,49 @@ pub fn ensure_always_on_top(window: &Window) {
                     0,
                     0,
                     0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
                 );
             }
         }
+    }
+}
+
+pub fn ensure_above_taskbar(window: &Window) {
+    if IS_POPUP_MENU_OPEN.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
+        };
+
+        unsafe {
+            if is_start_menu_or_flyout_open() {
+                return;
+            }
+
+            if let Ok(hwnd_ptr) = window.hwnd() {
+                let hwnd = HWND(hwnd_ptr.0);
+                if is_island_covered_by_taskbar(hwnd) {
+                    let _ = SetWindowPos(
+                        hwnd,
+                        HWND_TOPMOST,
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
+                    );
+                }
+            }
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
     }
 }
 
