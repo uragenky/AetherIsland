@@ -102,23 +102,23 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     let contentWidth = 0;
     let count = 0;
     if (visibleStats.cpu) {
-      contentWidth += 36;
+      contentWidth += 40;
       count++;
     }
     if (visibleStats.ram) {
-      contentWidth += 36;
+      contentWidth += 40;
       count++;
     }
     if (visibleStats.gpu) {
-      contentWidth += 36;
+      contentWidth += 40;
       count++;
     }
     if (visibleStats.battery && hasBattery) {
-      contentWidth += 38;
+      contentWidth += 42;
       count++;
     }
     if (visibleStats.net) {
-      contentWidth += 70; // 34 down + 34 up + 2 gap
+      contentWidth += 72; // 35 down + 35 up + 2 gap
       count++;
     }
 
@@ -127,9 +127,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     }
 
     // Concept A: Perfectly Symmetric Partitioned HUD
-    // Left padding (12px) + eyes (~28px) + space to divider (10px) + divider (1.5px) + space to first stat (10px) + right padding (12px) = 73.5px (~74px)
-    const basePillWidth = 74;
-    const gapWidth = Math.max(0, count - 1) * 5;
+    // Left padding (12px) + eyes (~30px) + space to divider (10px) + divider (1.5px) + space to first stat (10px) + right padding (12px) = 75.5px (~76px)
+    const basePillWidth = 76;
+    const gapWidth = Math.max(0, count - 1) * 6;
     return Math.max(120, basePillWidth + contentWidth + gapWidth);
   }, [visibleStats, hasBattery]);
 
@@ -177,23 +177,25 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   useEffect(() => {
     const resizeWindow = async () => {
       try {
+        const isDocked = dockStatus === 'top' || dockStatus === 'bottom';
+        const earBuffer = isDocked ? 24.0 : 0.0;
         if (mode === 'compact') {
           if (isMediaActive) {
-            await invoke('set_island_window_size', { width: 370.0, height: 38.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: 370.0 + earBuffer, height: 38.0, yOffset: 0.0 });
           } else if (showIdleStats) {
-            await invoke('set_island_window_size', { width: statsWidth, height: 38.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: statsWidth + earBuffer, height: 38.0, yOffset: 0.0 });
           } else {
-            await invoke('set_island_window_size', { width: 84.0, height: 38.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: 84.0 + earBuffer, height: 38.0, yOffset: 0.0 });
           }
         } else {
-          await invoke('set_island_window_size', { width: 430.0, height: 276.0, yOffset: 0.0 });
+          await invoke('set_island_window_size', { width: 430.0 + earBuffer, height: 276.0, yOffset: 0.0 });
         }
       } catch {
         // Ignored in non-windowed environments
       }
     };
     resizeWindow();
-  }, [mode, isMediaActive, showIdleStats, statsWidth]);
+  }, [mode, isMediaActive, showIdleStats, statsWidth, dockStatus]);
 
   const toggleExpand = () => {
     if (mode === 'compact') {
@@ -287,6 +289,12 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const isDockTop = dockStatus === 'top';
   const isDockBottom = dockStatus === 'bottom';
 
+  const currentBorderColor = isMediaActive
+    ? 'rgba(56, 189, 248, 0.42)'
+    : metrics.cpu_usage > 80
+    ? 'rgba(251, 113, 133, 0.42)'
+    : 'rgba(255, 255, 255, 0.3)';
+
   return (
     <div
       className={`fixed inset-0 flex justify-center ${
@@ -324,30 +332,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 : '84px'
               : '430px',
           height: mode === 'compact' ? '38px' : '276px',
-          borderTop: isDockTop
-            ? 'none'
-            : isMediaActive
-            ? '1px solid rgba(56, 189, 248, 0.42)'
-            : metrics.cpu_usage > 80
-            ? '1px solid rgba(251, 113, 133, 0.42)'
-            : '1px solid rgba(255, 255, 255, 0.3)',
-          borderBottom: isDockBottom
-            ? 'none'
-            : isMediaActive
-            ? '1px solid rgba(56, 189, 248, 0.42)'
-            : metrics.cpu_usage > 80
-            ? '1px solid rgba(251, 113, 133, 0.42)'
-            : '1px solid rgba(255, 255, 255, 0.3)',
-          borderLeft: isMediaActive
-            ? '1px solid rgba(56, 189, 248, 0.42)'
-            : metrics.cpu_usage > 80
-            ? '1px solid rgba(251, 113, 133, 0.42)'
-            : '1px solid rgba(255, 255, 255, 0.3)',
-          borderRight: isMediaActive
-            ? '1px solid rgba(56, 189, 248, 0.42)'
-            : metrics.cpu_usage > 80
-            ? '1px solid rgba(251, 113, 133, 0.42)'
-            : '1px solid rgba(255, 255, 255, 0.3)',
+          borderTop: isDockTop ? 'none' : `1px solid ${currentBorderColor}`,
+          borderBottom: isDockBottom ? 'none' : `1px solid ${currentBorderColor}`,
+          borderLeft: `1px solid ${currentBorderColor}`,
+          borderRight: `1px solid ${currentBorderColor}`,
           borderTopLeftRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '20px' : '9999px') : '24px'),
           borderTopRightRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '20px' : '9999px') : '24px'),
           borderBottomLeftRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '20px' : '9999px') : '24px'),
@@ -368,6 +356,93 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             : 'p-3.5 flex flex-col justify-between'
         }`}
       >
+        {/* Outward Concave Notch Ears (Lekukan ke Arah Luar saat Menempel) */}
+        {isDockTop && (
+          <>
+            {/* Top-Left Outward Wing */}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              className="absolute -left-[12px] top-0 pointer-events-none select-none"
+              style={{ overflow: 'visible' }}
+            >
+              <path
+                d="M 0,0 C 6.5,0 12,5.5 12,12 L 12,0 Z"
+                fill="#000000"
+              />
+              <path
+                d="M 0,0 C 6.5,0 12,5.5 12,12"
+                fill="none"
+                stroke={currentBorderColor}
+                strokeWidth="1"
+              />
+            </svg>
+            {/* Top-Right Outward Wing */}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              className="absolute -right-[12px] top-0 pointer-events-none select-none"
+              style={{ overflow: 'visible' }}
+            >
+              <path
+                d="M 12,0 C 5.5,0 0,5.5 0,12 L 0,0 Z"
+                fill="#000000"
+              />
+              <path
+                d="M 12,0 C 5.5,0 0,5.5 0,12"
+                fill="none"
+                stroke={currentBorderColor}
+                strokeWidth="1"
+              />
+            </svg>
+          </>
+        )}
+
+        {isDockBottom && (
+          <>
+            {/* Bottom-Left Outward Wing */}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              className="absolute -left-[12px] bottom-0 pointer-events-none select-none"
+              style={{ overflow: 'visible' }}
+            >
+              <path
+                d="M 0,12 C 6.5,12 12,6.5 12,0 L 12,12 Z"
+                fill="#000000"
+              />
+              <path
+                d="M 0,12 C 6.5,12 12,6.5 12,0"
+                fill="none"
+                stroke={currentBorderColor}
+                strokeWidth="1"
+              />
+            </svg>
+            {/* Bottom-Right Outward Wing */}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              className="absolute -right-[12px] bottom-0 pointer-events-none select-none"
+              style={{ overflow: 'visible' }}
+            >
+              <path
+                d="M 12,12 C 5.5,12 0,6.5 0,0 L 0,12 Z"
+                fill="#000000"
+              />
+              <path
+                d="M 12,12 C 5.5,12 0,6.5 0,0"
+                fill="none"
+                stroke={currentBorderColor}
+                strokeWidth="1"
+              />
+            </svg>
+          </>
+        )}
+
         {/* Temporary Volume Feedback Overlay */}
         <AnimatePresence>
           {volumeFeedback && mode === 'compact' && (
@@ -528,8 +603,16 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
               {/* Micro Vertical Hairline Partition: 18px height, 1.5px width, 10px symmetric spacing */}
               <div
-                className="w-[1.5px] h-[18px] bg-white/45 rounded-full flex-shrink-0 mx-[10px]"
-                style={{ boxShadow: '0 0 4px rgba(255, 255, 255, 0.25)' }}
+                style={{
+                  width: '1.5px',
+                  height: '18px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.45)',
+                  boxShadow: '0 0 4px rgba(255, 255, 255, 0.25)',
+                  borderRadius: '9999px',
+                  marginLeft: '10px',
+                  marginRight: '10px',
+                  flexShrink: 0,
+                }}
                 aria-hidden="true"
               />
 
@@ -542,12 +625,12 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   e.stopPropagation();
                   toggleExpand();
                 }}
-                className="flex-1 min-w-0 flex items-center justify-end gap-[5px] text-[10px] font-mono text-neutral-300 select-none cursor-grab active:cursor-grabbing"
+                className="flex items-center gap-[6px] text-[10px] font-mono text-neutral-300 select-none cursor-grab active:cursor-grabbing flex-shrink-0"
                 title="Double-click for full dashboard, right-click to choose metrics or quit"
               >
-                {/* CPU */}
+                {/* 1. CPU Item: [ <Cpu /> + % ] */}
                 {visibleStats.cpu && (
-                  <div className="flex items-center gap-0.5 w-[36px] flex-shrink-0" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
+                  <div className="flex items-center gap-1 flex-shrink-0" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
                     <Cpu className="w-3 h-3 text-emerald-400 flex-shrink-0" />
                     <span className={`tabular-nums text-left ${metrics.cpu_usage > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                       {metrics.cpu_usage.toFixed(0)}%
@@ -555,9 +638,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   </div>
                 )}
 
-                {/* RAM */}
+                {/* 2. RAM Item: [ <MemoryStick /> + % ] */}
                 {visibleStats.ram && (
-                  <div className="flex items-center gap-0.5 w-[36px] flex-shrink-0" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
+                  <div className="flex items-center gap-1 flex-shrink-0" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
                     <MemoryStick className="w-3 h-3 text-sky-400 flex-shrink-0" />
                     <span className={`tabular-nums text-left ${metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                       {metrics.ram_percentage.toFixed(0)}%
@@ -565,9 +648,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   </div>
                 )}
 
-                {/* GPU */}
+                {/* 3. GPU Item: [ <Gpu /> + % ] */}
                 {visibleStats.gpu && (
-                  <div className="flex items-center gap-0.5 w-[36px] flex-shrink-0" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
+                  <div className="flex items-center gap-1 flex-shrink-0" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
                     <Gpu className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                     <span className={`tabular-nums text-left ${(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
                       {(metrics.gpu_usage ?? 0).toFixed(0)}%
@@ -575,10 +658,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   </div>
                 )}
 
-                {/* Battery Indicator (if present) */}
+                {/* 4. Battery Indicator (if present) */}
                 {visibleStats.battery && hasBattery && (
                   <div
-                    className="flex items-center gap-0.5 w-[38px] flex-shrink-0"
+                    className="flex items-center gap-1 flex-shrink-0"
                     title={metrics.is_charging ? `Charging: ${metrics.battery_percentage}%` : `Battery: ${metrics.battery_percentage}%`}
                   >
                     {metrics.is_charging ? (
@@ -596,14 +679,14 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   </div>
                 )}
 
-                {/* Bandwidth Download & Upload */}
+                {/* 5. Bandwidth Download & Upload */}
                 {visibleStats.net && (
                   <div className="flex items-center gap-[2px] font-semibold flex-shrink-0">
-                    <span className="flex items-center gap-0.5 text-emerald-300 w-[34px] flex-shrink-0" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
+                    <span className="flex items-center gap-0.5 text-emerald-300 w-[35px] flex-shrink-0" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
                       <ArrowDown className="w-2.5 h-2.5 flex-shrink-0" />
                       <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_download_kbps)}</span>
                     </span>
-                    <span className="flex items-center gap-0.5 text-sky-300 w-[34px] flex-shrink-0" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
+                    <span className="flex items-center gap-0.5 text-sky-300 w-[35px] flex-shrink-0" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
                       <ArrowUp className="w-2.5 h-2.5 flex-shrink-0" />
                       <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_upload_kbps)}</span>
                     </span>
