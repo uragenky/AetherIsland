@@ -109,21 +109,26 @@
 ### 4.2. Eyes Companion Engine (`src/components/EyesCompanion.tsx`)
 - **Visual Representation**: Minimalist expressive capsule/arc eye pairs rendered via vector SVG paths.
 - **Behavioral State Machine**:
-  1. `IDLE`: Regular calm blinking. Random blink intervals scheduled between 3.5s and 6.0s.
-  2. `LOOK_AT_MOUSE`: Tracks mouse proximity when cursor is within a 300px radius of the island. Pupils subtly shift their `cx`/`cy` offsets toward the cursor coordinates.
-  3. `MUSIC_VIBE`: Triggered when GSMTC detects active media playback. Eyes morph into curved happy arcs (`^ ^`) and gently oscillate vertically in sync with tempo heuristics.
-  4. `SYSTEM_STRESS`: Triggered when CPU, RAM, or GPU usage exceeds 80%. Eyes expand with contracted pupils or spin into spiral indicators (`@ @`).
-  5. `SLEEP`: Triggered when the OS reports no user input for over 5 minutes via `GetLastInputInfo`. Eyes transition to resting horizontal slits (`- -`).
-  6. `WINK`: Triggered on single-click interaction without expanding or closing the island.
+  1. `IDLE`: Regular calm blinking. Random blink intervals scheduled between 3.0s and 6.5s with a 25% double-blink chance.
+  2. `LOOK_AT_MOUSE`: Tracks mouse proximity when cursor moves across the screen. Pupils shift their offsets toward cursor coordinates.
+  3. `PETTING_HAPPY` (`^ ^`): Triggered by rapidly stroking/scrubbing the cursor over the eyes companion. Eyes transform into curved joyful emerald arcs with a cheerful bounce for 1.4s.
+  4. `CHARGING_FLASH` (`⚡ ⚡`): Triggered on transition when the laptop is plugged into an AC charger. Eyes flash into vibrant electric amber-yellow lightning bolts for 2.2s.
+  5. `DIZZY_SPIN`: Triggered while actively dragging the island window across the desktop. Eyes become lilac anime swirl spirals spinning continuously.
+  6. `MUSIC_GROOVE`: Triggered when GSMTC detects active media playback. Eyes morph into curved happy arcs and gently oscillate in sync with music.
+  7. `SYSTEM_STRESS`: Triggered when CPU usage exceeds 80%. Eyes contract with high-frequency jitter and soft coral glow.
+  8. `DEEP_SLEEP`: Triggered after 3 minutes of total inactivity (no cursor movement, no keystrokes, no music). Eyes become resting slits with slow 3.2s breathing animation and tiny floating `"z"` particles.
+  9. `WINK`: Triggered on single-click interaction without expanding or closing the island.
 
 ---
 
-### 4.3. System Monitor Worker (`src-tauri/src/monitor.rs`)
+### 4.3. System Monitor Worker (`src-tauri/src/monitor.rs` & `SystemDashboard.tsx`)
 - Utilizes the `sysinfo` Rust crate with minimal polling overhead:
   - `CpuRefreshKind::nothing().with_cpu_usage()`
   - `MemoryRefreshKind::nothing().with_ram()`
 - **Native Battery Polling**: Integrates native Win32 `GetSystemPowerStatus` API from `kernel32.dll` to read battery level percentage and real-time AC charging status (`is_charging`).
 - **GPU Telemetry**: GPU utilization tracking integrated with hardware stress alerts and displayed via dedicated `<Gpu />` PCIe graphics card icon.
+- **Actionable Telemetry**: Clicking the CPU or RAM metric card launches the native Windows Task Manager (`taskmgr.exe`).
+- **Real-Time Mini Sparklines**: Vector SVG trend lines inside CPU, RAM, and GPU cards capturing the last 12 telemetry polling cycles.
 - **Update Frequency**: 1500ms asynchronous background loop. Emits Tauri `system-metrics` events to the frontend.
 - **Telemetry Payload**:
   ```json
@@ -142,13 +147,16 @@
 
 ---
 
-### 4.4. Global System Media Transport Controls (GSMTC) (`src-tauri/src/media.rs`)
+### 4.4. Global System Media Transport Controls (GSMTC) & Audio Controls (`src-tauri/src/media.rs` & `src-tauri/src/lib.rs`)
 - Connects to Windows Runtime `Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager`.
 - Runs on a dedicated Multi-Threaded Apartment (MTA) worker thread to prevent thread affinity crashes (`RPC_E_WRONG_THREAD`).
 - **Looping-Free Clock Synchronization**:
   - Solves the SMTC timeline zero-reset bug found in YouTube / Chromium / foobar2000 by establishing an authoritative internal monotonic clock.
   - Native SMTC timeline position updates are filtered; only true user-seek jumps (`> 2500ms`) or track changes are synchronized.
   - Rust background ticker increments position every 500ms and frontend runs a local 250ms sub-second micro-clock, ensuring smooth seekbar movement and uninterrupted karaoke scrolling.
+- **Quick Audio Controls (Mouse & Desktop Utility)**:
+  - **Mouse Wheel Volume Scrubber**: Scrolling the mouse wheel over the compact island invokes `change_volume(steps)` sending native `VK_VOLUME_UP` / `VK_VOLUME_DOWN` key events, accompanied by an instant HUD overlay feedback pill.
+  - **Middle-Click Quick Action**: Clicking mouse button 1 (wheel click) triggers instantaneous Play/Pause during media playback or native Windows `toggle_mute` (`VK_VOLUME_MUTE`) during idle.
 - **Capabilities**:
   - Event listener for `CurrentSessionChanged` and `MediaPropertiesChanged`.
   - Extracts title, artist, album name, and cover thumbnail stream.
@@ -196,26 +204,28 @@ The island operates in three visual modes:
 
 1. **Compact Idle Modes**:
    - **Idle Emoticon Capsule (Default)**:
-     - Size: `84px x 36px` (Native window: `92px x 42px`, Border-radius: `9999px` / notched `20px`)
+     - Size: `84px x 38px` (Native window: `84px x 38px`, Border-radius: `9999px` / notched `20px`)
      - Centered: Expressive SVG Eyes Companion emoticon only. Zero distraction or visual clutter.
-     - Interactions: Single-click on eye to wink, double-click on eye to toggle hardware stats pill, drag with 5px movement threshold to reposition.
-   - **Idle Hardware Stats Pill (Double-Click on Eye)**:
-     - Size: `340px - 385px x 38px` (Native window: `340px - 395px x 44px`)
+     - Interactions: Single-click on eye to wink, double-click on eye to toggle hardware stats pill, stroke to pet (`^ ^`), drag to dizzy swirl, drag with 5px movement threshold to reposition.
+   - **Idle Hardware Stats Pill: The Partitioned HUD (Concept A)**:
+     - Size: `120px - 340px x 38px` (Native window: dynamic `statsWidth` x `38px`)
      - Left: Expressive SVG Eyes Companion (single-click to wink, double-click to collapse back to capsule).
-     - Center: Icon-only live telemetry indicators: `<Cpu /> %`, `<MemoryStick /> %` (RAM), `<Gpu /> %` (GPU), dynamic `<BatteryCharging />` / `<BatteryFull />` indicator with percentage, and `<ArrowDown />` / `<ArrowUp />` bandwidth speeds.
-     - Interactions: Double-click on the stats area opens the full dashboard. No arrow buttons required.
+     - Divider: Micro vertical hairline partition (`1px x 14px bg-white/20`) establishing clear visual separation between the companion persona and the telemetry HUD.
+     - Right: Balanced modular telemetry indicators: `<Cpu /> %`, `<MemoryStick /> %` (RAM), `<Gpu /> %` (GPU), dynamic `<BatteryCharging />` / `<BatteryFull />` indicator with percentage, and `<ArrowDown />` / `<ArrowUp />` bandwidth speeds.
+     - Interactions: Double-click on the stats area opens the full dashboard. Scroll wheel controls master volume. Middle-click mutes audio.
 
 2. **Compact Media Pill (Active Playback)**:
-   - Size: `370px x 38px` (Native window: `380px x 44px`)
+   - Size: `370px x 38px` (Native window: `370px x 38px`)
    - Left: Eyes companion with groove/music animation + `<Mic2 />` button with pulsing cyan indicator when synced lyrics are available.
    - Middle: Stable Track Title & Artist display (`Title — Artist`) preserving glanceability without text cutting or lyric flickering, with Romanized tooltip on hover.
    - Right: Quick cyan-themed media playback controls (Previous, Play/Pause, Next) + Real-time animated audio visualizer bars. Double-click anywhere expands to full dashboard.
+   - Aesthetic: Safe OLED inset ambient glow (`box-shadow: inset 0 0 16px rgba(56, 189, 248, 0.14)`) and dynamic border hue.
 
 3. **Expanded Island (Double-Click or Expand Button)**:
-   - Size: `430px x 270px` (Native window: `440px x 285px`, Border-radius: `24px` / notched `26px`)
+   - Size: `430px x 276px` (Native window: `430px x 276px`, Border-radius: `24px` / notched `26px`)
    - **Header**: Eyes companion with mood status + unified draggable header + Mode/Tab switchers (Media / System) + minimize button.
-   - **Body Left/Center**: Full media controls with glowing blue/cyan transport controls, album artwork, and synced lyrics view with automatic Latin/Romaji transliteration for Japanese (Kana & full Kanji dictionary), Korean (Hangul), Arabic, and Cyrillic, or comprehensive system resource metrics dashboard (CPU, RAM, GPU, Network, Battery).
-   - **Footer/Mini-bar**: Quick media toggle or detailed hardware telemetry.
+   - **Body Left/Center**: Full media controls with glowing blue/cyan transport controls, album artwork, and synced lyrics view with Apple Music style focal typography and automatic Latin/Romaji transliteration for Japanese (Kana & full Kanji dictionary), Korean (Hangul), Arabic, and Cyrillic, or comprehensive system resource metrics dashboard (CPU, RAM, GPU, Network, Battery).
+   - **Footer/Mini-bar**: Quick media toggle or detailed hardware telemetry with real-time SVG sparklines and 1-click Task Manager launcher.
 
 ---
 
@@ -228,6 +238,7 @@ The island operates in three visual modes:
 | **High network latency** | Non-blocking asynchronous reqwest calls with a 3-second timeout. Shows skeleton loader in expanded mode. |
 | **Multi-monitor display disconnect** | Window registers `WM_DISPLAYCHANGE` and `WM_DPICHANGED` messages to recalculate center offset on the primary display. |
 | **High DPI display (125%, 150%, 200%)** | Native scaling factors applied to physical window dimensions to prevent blurriness and pixel misalignment. |
+| **WebView2 DWM Alpha Premultiplication Artifacts** | All ambient glowing uses internal `inset` shadows and dynamic border highlights; 0 outer shadows are cast onto transparent desktop bounds. |
 
 ---
 
@@ -241,3 +252,4 @@ The island operates in three visual modes:
 - [x] **Phase 6**: `sysinfo` + Win32 telemetry worker for CPU, RAM (`MemoryStick`), GPU (`Gpu`), native battery & charging, and network bandwidth.
 - [x] **Phase 7**: Smart non-intrusive taskbar Z-order & Start Menu guard, native context menu, seekbar desync guard, and modular telemetry.
 - [x] **Phase 8**: Production packaging (NSIS .exe and WiX .msi bundle workflows).
+- [x] **Phase 9**: Interactive desktop pet emotions (dizzy drag, petting, charging flash, deep sleep), Concept A Partitioned HUD, master volume wheel scrubber, middle-click controls, and Task Manager sparklines.

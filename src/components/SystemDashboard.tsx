@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { Cpu, MemoryStick, ArrowDown, ArrowUp, Battery, BatteryCharging, Gpu } from 'lucide-react';
 import { SystemMetrics, VisibleStatsConfig } from '../types';
 
@@ -8,11 +9,42 @@ interface SystemDashboardProps {
   onToggleStat?: (key: keyof VisibleStatsConfig) => void;
 }
 
+const MiniSparkline: React.FC<{ data: number[]; max?: number; color: string }> = ({ data, max = 100, color }) => {
+  if (data.length < 2) return null;
+  const width = 40;
+  const height = 14;
+  const points = data.map((val, idx) => {
+    const x = (idx / (data.length - 1)) * width;
+    const y = height - (Math.min(max, Math.max(0, val)) / max) * (height - 3) - 1.5;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const pathD = `M ${points.join(' L ')}`;
+  return (
+    <svg width={width} height={height} className="overflow-visible flex-shrink-0 opacity-75">
+      <path d={pathD} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
 export const SystemDashboard: React.FC<SystemDashboardProps> = ({
   metrics,
   visibleStats,
   onToggleStat,
 }) => {
+  const [cpuHistory, setCpuHistory] = useState<number[]>(() => [metrics.cpu_usage]);
+  const [ramHistory, setRamHistory] = useState<number[]>(() => [metrics.ram_percentage]);
+  const [gpuHistory, setGpuHistory] = useState<number[]>(() => [metrics.gpu_usage ?? 0]);
+
+  useEffect(() => {
+    setCpuHistory((prev) => [...prev.slice(-11), metrics.cpu_usage]);
+    setRamHistory((prev) => [...prev.slice(-11), metrics.ram_percentage]);
+    setGpuHistory((prev) => [...prev.slice(-11), metrics.gpu_usage ?? 0]);
+  }, [metrics.cpu_usage, metrics.ram_percentage, metrics.gpu_usage]);
+
+  const handleOpenTaskManager = () => {
+    invoke('launch_task_manager').catch(() => {});
+  };
+
   const getMetricColor = (val: number) => {
     if (val > 80) return 'text-rose-400 bg-rose-500/20';
     if (val > 50) return 'text-amber-400 bg-amber-500/20';
@@ -64,78 +96,95 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
 
       {/* Grid of Metric Cards */}
       <div className="grid grid-cols-3 gap-2 w-full">
-      {/* CPU Metric Card */}
-      <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/10">
-        <div className={`p-1.5 rounded-lg ${getMetricColor(metrics.cpu_usage)}`}>
-          <Cpu className="w-3.5 h-3.5" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-[9px] text-neutral-400 uppercase tracking-wider font-medium">CPU</span>
-          <span className="text-xs font-semibold text-white">
-            {metrics.cpu_usage.toFixed(0)}%
-          </span>
-        </div>
-      </div>
-
-      {/* RAM Metric Card */}
-      <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/10">
-        <div className={`p-1.5 rounded-lg ${getRamColor(metrics.ram_percentage)}`}>
-          <MemoryStick className="w-3.5 h-3.5" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-[9px] text-neutral-400 uppercase tracking-wider font-medium">RAM</span>
-          <span className="text-xs font-semibold text-white">
-            {metrics.ram_percentage.toFixed(0)}%
-          </span>
-        </div>
-      </div>
-
-      {/* GPU Metric Card */}
-      <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/10">
-        <div className={`p-1.5 rounded-lg ${getMetricColor(gpuVal)}`}>
-          <Gpu className="w-3.5 h-3.5" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-[9px] text-neutral-400 uppercase tracking-wider font-medium">GPU</span>
-          <span className="text-xs font-semibold text-white">
-            {gpuVal.toFixed(0)}%
-          </span>
-        </div>
-      </div>
-
-      {/* Network Speeds Card */}
-      <div className="flex items-center justify-between col-span-3 bg-neutral-900/80 rounded-xl px-3 py-1.5 border border-white/10 text-xs text-neutral-300">
-        <div className="flex items-center gap-1.5">
-          <ArrowDown className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-[11px] font-medium">
-            {metrics.net_download_kbps > 1024
-              ? `${(metrics.net_download_kbps / 1024).toFixed(1)} MB/s`
-              : `${metrics.net_download_kbps.toFixed(0)} KB/s`}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
-          <span className="text-[11px] font-medium">
-            {metrics.net_upload_kbps > 1024
-              ? `${(metrics.net_upload_kbps / 1024).toFixed(1)} MB/s`
-              : `${metrics.net_upload_kbps.toFixed(0)} KB/s`}
-          </span>
-        </div>
-
-        {/* Battery if available */}
-        {metrics.battery_percentage !== undefined && metrics.battery_percentage !== null && (
-          <div className="flex items-center gap-1">
-            {metrics.is_charging ? (
-              <BatteryCharging className="w-3.5 h-3.5 text-amber-400" />
-            ) : (
-              <Battery className="w-3.5 h-3.5 text-neutral-400" />
-            )}
-            <span className="text-[11px] font-medium">{metrics.battery_percentage}%</span>
+        {/* CPU Metric Card (Clickable -> Task Manager) */}
+        <div
+          onClick={handleOpenTaskManager}
+          className="flex items-center justify-between bg-neutral-900/80 rounded-xl p-2 border border-white/10 cursor-pointer hover:border-cyan-500/40 hover:bg-neutral-800/90 active:scale-[0.98] transition-all group"
+          title="Click to open Windows Task Manager"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className={`p-1.5 rounded-lg ${getMetricColor(metrics.cpu_usage)} flex-shrink-0`}>
+              <Cpu className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[9px] text-neutral-400 uppercase tracking-wider font-medium group-hover:text-cyan-300 transition-colors">CPU</span>
+              <span className="text-xs font-semibold text-white">
+                {metrics.cpu_usage.toFixed(0)}%
+              </span>
+            </div>
           </div>
-        )}
+          <MiniSparkline data={cpuHistory} color={metrics.cpu_usage > 80 ? '#fb7185' : '#34d399'} />
+        </div>
+
+        {/* RAM Metric Card (Clickable -> Task Manager) */}
+        <div
+          onClick={handleOpenTaskManager}
+          className="flex items-center justify-between bg-neutral-900/80 rounded-xl p-2 border border-white/10 cursor-pointer hover:border-cyan-500/40 hover:bg-neutral-800/90 active:scale-[0.98] transition-all group"
+          title="Click to open Windows Task Manager"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className={`p-1.5 rounded-lg ${getRamColor(metrics.ram_percentage)} flex-shrink-0`}>
+              <MemoryStick className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[9px] text-neutral-400 uppercase tracking-wider font-medium group-hover:text-cyan-300 transition-colors">RAM</span>
+              <span className="text-xs font-semibold text-white">
+                {metrics.ram_percentage.toFixed(0)}%
+              </span>
+            </div>
+          </div>
+          <MiniSparkline data={ramHistory} color={metrics.ram_percentage > 85 ? '#fb7185' : '#38bdf8'} />
+        </div>
+
+        {/* GPU Metric Card */}
+        <div className="flex items-center justify-between bg-neutral-900/80 rounded-xl p-2 border border-white/10">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className={`p-1.5 rounded-lg ${getMetricColor(gpuVal)} flex-shrink-0`}>
+              <Gpu className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[9px] text-neutral-400 uppercase tracking-wider font-medium">GPU</span>
+              <span className="text-xs font-semibold text-white">
+                {gpuVal.toFixed(0)}%
+              </span>
+            </div>
+          </div>
+          <MiniSparkline data={gpuHistory} color={gpuVal > 80 ? '#fb7185' : '#fbbf24'} />
+        </div>
+
+        {/* Network & Battery Status Card */}
+        <div className="flex items-center justify-between col-span-3 bg-neutral-900/80 rounded-xl px-3 py-1.5 border border-white/10 text-xs text-neutral-300">
+          <div className="flex items-center gap-1.5">
+            <ArrowDown className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-[11px] font-medium font-mono">
+              {metrics.net_download_kbps > 1024
+                ? `${(metrics.net_download_kbps / 1024).toFixed(1)} MB/s`
+                : `${metrics.net_download_kbps.toFixed(0)} KB/s`}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-[11px] font-medium font-mono">
+              {metrics.net_upload_kbps > 1024
+                ? `${(metrics.net_upload_kbps / 1024).toFixed(1)} MB/s`
+                : `${metrics.net_upload_kbps.toFixed(0)} KB/s`}
+            </span>
+          </div>
+
+          {/* Battery if available */}
+          {metrics.battery_percentage !== undefined && metrics.battery_percentage !== null && (
+            <div className="flex items-center gap-1 font-mono">
+              {metrics.is_charging ? (
+                <BatteryCharging className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              ) : (
+                <Battery className="w-3.5 h-3.5 text-neutral-400" />
+              )}
+              <span className="text-[11px] font-medium">{metrics.battery_percentage}%</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  </div>
   );
 };

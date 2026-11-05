@@ -63,4 +63,4 @@ export const DEFAULT_VISIBLE_STATS: VisibleStatsConfig = {
 
 export type IslandMode = 'compact' | 'expanded' | 'lyrics';
 
-export type EyeMood = 'idle' | 'happy' | 'groove' | 'look_at' | 'stress' | 'sleepy' | 'wink';
+export type EyeMood = 'idle' | 'happy' | 'groove' | 'look_at' | 'stress' | 'sleepy' | 'wink' | 'dizzy' | 'charging';

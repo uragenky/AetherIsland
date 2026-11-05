@@ -449,14 +449,18 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
                     transform: isActive
                       ? 'scale(1.06) translateZ(0)'
                       : isNear
-                      ? 'scale(0.98) translateZ(0)'
-                      : 'scale(0.93) translateZ(0)',
-                    opacity: isActive ? 1 : isNear ? 0.65 : 0.28,
-                    color: isActive ? '#38bdf8' : isNear ? '#f1f5f9' : '#94a3b8',
+                      ? 'scale(0.97) translateZ(0)'
+                      : 'scale(0.92) translateZ(0)',
+                    opacity: isActive ? 1 : isNear ? 0.6 : 0.22,
+                    color: isActive ? '#38bdf8' : isNear ? '#e2e8f0' : '#64748b',
+                    textShadow: isActive
+                      ? '0 0 14px rgba(56, 189, 248, 0.45)'
+                      : 'none',
                     backgroundColor: isActive ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
-                    borderColor: isActive ? 'rgba(56, 189, 248, 0.28)' : 'transparent',
+                    borderColor: isActive ? 'rgba(56, 189, 248, 0.35)' : 'transparent',
+                    boxShadow: isActive ? 'inset 0 0 12px rgba(56, 189, 248, 0.08)' : 'none',
                     transition:
-                      'transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 260ms ease, color 260ms ease, background-color 260ms ease, border-color 260ms ease',
+                      'transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 260ms ease, color 260ms ease, background-color 260ms ease, border-color 260ms ease, text-shadow 260ms ease',
                     willChange: 'transform, opacity',
                   }}
                   className={`cursor-pointer px-3 py-1.5 rounded-xl border flex flex-col items-center justify-center text-[13px] leading-snug ${

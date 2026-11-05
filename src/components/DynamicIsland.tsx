@@ -33,6 +33,7 @@ import {
   Pause,
   SkipBack,
   SkipForward,
+  Volume2,
 } from 'lucide-react';
 import { hasNonLatinScript, transliterateText } from '../utils/transliterate';
 
@@ -70,6 +71,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const [activeTab, setActiveTab] = useState<'media' | 'system'>('media');
   const [dockStatus, setDockStatus] = useState<'top' | 'bottom' | 'floating'>('top');
   const [showIdleStats, setShowIdleStats] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [volumeFeedback, setVolumeFeedback] = useState<'up' | 'down' | null>(null);
+  const volumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visibleStats, setVisibleStats] = useState<VisibleStatsConfig>(() => {
     try {
       const saved = localStorage.getItem('aether_visible_stats');
@@ -122,9 +126,12 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       return 84;
     }
 
-    // Eyes (~30px) + padding (~24px) + Separation between eyes and stats (16px) = 70px
+    // Concept A: Partitioned HUD
+    // Left side: padding (10px) + eyes (~28px) + eyes-padding (6px) + divider & margins (9px) + pre-stats buffer (4px) + right padding (10px) = 67px
+    // Safety buffer: 8px -> base = 75px
+    const basePillWidth = 75;
     const gapWidth = Math.max(0, count - 1) * 8;
-    return Math.max(120, 70 + contentWidth + gapWidth);
+    return Math.max(120, basePillWidth + contentWidth + gapWidth);
   }, [visibleStats, hasBattery]);
 
   // Listen to real-time window movement & edge snap state from Tauri backend
@@ -203,6 +210,17 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const dragStartRef = useRef<{ x: number; y: number; isDown: boolean } | null>(null);
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    // Middle-click (wheel button) triggers quick play/pause or mute
+    if (e.button === 1) {
+      e.preventDefault();
+      if (isMediaActive) {
+        onPlayPause();
+      } else {
+        invoke('toggle_mute').catch(() => {});
+      }
+      return;
+    }
+
     if (e.button === 0) {
       invoke('force_topmost').catch(() => {});
       dragStartRef.current = { x: e.screenX, y: e.screenY, isDown: true };
@@ -214,12 +232,29 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       const dist = Math.hypot(e.screenX - dragStartRef.current.x, e.screenY - dragStartRef.current.y);
       if (dist > 5) {
         dragStartRef.current.isDown = false;
+        setIsDragging(true);
         invoke('start_window_drag')
           .then(() => {
             invoke('snap_island').catch(() => {});
           })
-          .catch(() => {});
+          .catch(() => {})
+          .finally(() => {
+            setIsDragging(false);
+          });
       }
+    }
+  };
+
+  // Mouse wheel volume scrubber on compact pill
+  const handleWheel = (e: React.WheelEvent) => {
+    if (mode === 'compact') {
+      const steps = e.deltaY < 0 ? 1 : -1;
+      invoke('change_volume', { steps }).catch(() => {});
+      setVolumeFeedback(steps > 0 ? 'up' : 'down');
+      if (volumeTimerRef.current) clearTimeout(volumeTimerRef.current);
+      volumeTimerRef.current = setTimeout(() => {
+        setVolumeFeedback(null);
+      }, 850);
     }
   };
 
@@ -271,6 +306,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           damping: 30,
           mass: 0.8,
         }}
+        onWheel={handleWheel}
         onContextMenu={(e) => {
           e.preventDefault();
           invoke('show_context_menu', { config: visibleStats }).catch(() => {});
@@ -289,26 +325,67 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 : '84px'
               : '430px',
           height: mode === 'compact' ? '38px' : '276px',
-          borderTop: isDockTop ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
-          borderBottom: isDockBottom ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
-          borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.35)',
+          borderTop: isDockTop
+            ? 'none'
+            : isMediaActive
+            ? '1px solid rgba(56, 189, 248, 0.42)'
+            : metrics.cpu_usage > 80
+            ? '1px solid rgba(251, 113, 133, 0.42)'
+            : '1px solid rgba(255, 255, 255, 0.3)',
+          borderBottom: isDockBottom
+            ? 'none'
+            : isMediaActive
+            ? '1px solid rgba(56, 189, 248, 0.42)'
+            : metrics.cpu_usage > 80
+            ? '1px solid rgba(251, 113, 133, 0.42)'
+            : '1px solid rgba(255, 255, 255, 0.3)',
+          borderLeft: isMediaActive
+            ? '1px solid rgba(56, 189, 248, 0.42)'
+            : metrics.cpu_usage > 80
+            ? '1px solid rgba(251, 113, 133, 0.42)'
+            : '1px solid rgba(255, 255, 255, 0.3)',
+          borderRight: isMediaActive
+            ? '1px solid rgba(56, 189, 248, 0.42)'
+            : metrics.cpu_usage > 80
+            ? '1px solid rgba(251, 113, 133, 0.42)'
+            : '1px solid rgba(255, 255, 255, 0.3)',
           borderTopLeftRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '20px' : '9999px') : '24px'),
           borderTopRightRadius: isDockTop ? '0px' : (mode === 'compact' ? (isDockBottom ? '20px' : '9999px') : '24px'),
           borderBottomLeftRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '20px' : '9999px') : '24px'),
           borderBottomRightRadius: isDockBottom ? '0px' : (mode === 'compact' ? (isDockTop ? '20px' : '9999px') : '24px'),
-          boxShadow: 'none',
+          boxShadow: isMediaActive
+            ? 'inset 0 0 16px rgba(56, 189, 248, 0.14)'
+            : metrics.cpu_usage > 80
+            ? 'inset 0 0 16px rgba(251, 113, 133, 0.16)'
+            : 'inset 0 0 10px rgba(255, 255, 255, 0.05)',
         }}
         className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
             ? isMediaActive
               ? 'px-3 py-1 flex items-center justify-between'
               : showIdleStats
-              ? 'px-3 py-1 flex items-center justify-between'
+              ? 'px-2.5 py-1 flex items-center justify-between'
               : 'px-2 py-1 flex items-center justify-center'
             : 'p-3.5 flex flex-col justify-between'
         }`}
       >
+        {/* Temporary Volume Feedback Overlay */}
+        <AnimatePresence>
+          {volumeFeedback && mode === 'compact' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ duration: 0.12 }}
+              className="absolute inset-0 bg-black/92 rounded-full flex items-center justify-center gap-1.5 text-cyan-300 text-xs font-medium z-50 pointer-events-none border border-cyan-500/40"
+            >
+              <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="font-mono text-[11px] tracking-wide">
+                {volumeFeedback === 'up' ? 'Volume +' : 'Volume -'}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* COMPACT MODE */}
         {mode === 'compact' && (
           isMediaActive ? (
@@ -326,6 +403,8 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   mood="idle"
                   isMusicPlaying={media.is_playing}
                   cpuUsage={metrics.cpu_usage}
+                  isCharging={metrics.is_charging}
+                  isDragging={isDragging}
                   size="small"
                   onDoubleClick={toggleExpand}
                 />
@@ -426,27 +505,35 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               </div>
             </div>
           ) : showIdleStats ? (
-            /* IDLE STATS MODE: EYES (DOUBLE-CLICK TO HIDE) + ICON-ONLY STATS (DOUBLE-CLICK FOR DASHBOARD) */
+            /* IDLE STATS MODE: THE PARTITIONED HUD (CONCEPT A) */
             <div
-              className="flex items-center w-full h-full px-0.5"
+              className="flex items-center w-full h-full"
               style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', height: '100%' }}
             >
-              {/* Eyes Companion (Left - double-click to collapse stats) */}
+              {/* Eyes Companion (Left Partition - double-click to collapse stats) */}
               <div
-                className="flex items-center flex-shrink-0 cursor-pointer mr-3.5"
+                className="flex items-center flex-shrink-0 cursor-pointer pl-0.5 pr-1"
                 style={{ display: 'inline-flex', alignItems: 'center' }}
-                title="Double-click eye to hide stats, click to wink"
+                title="Double-click eye to hide stats, stroke to pet, click to wink"
               >
                 <EyesCompanion
                   mood="idle"
                   isMusicPlaying={false}
                   cpuUsage={metrics.cpu_usage}
+                  isCharging={metrics.is_charging}
+                  isDragging={isDragging}
                   size="small"
                   onDoubleClick={() => setShowIdleStats(false)}
                 />
               </div>
 
-              {/* Hardware Stats (Middle - Draggable, Double-click to expand dashboard) */}
+              {/* Micro Vertical Hairline Partition */}
+              <div
+                className="w-[1px] h-3.5 bg-white/20 rounded-full flex-shrink-0 mx-1.5"
+                aria-hidden="true"
+              />
+
+              {/* Hardware Stats HUD (Right Partition - Draggable, Double-click to expand dashboard) */}
               <div
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
@@ -455,7 +542,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   e.stopPropagation();
                   toggleExpand();
                 }}
-                className="flex-1 min-w-0 flex items-center justify-center gap-2 text-[10px] font-mono text-neutral-300 select-none cursor-grab active:cursor-grabbing"
+                className="flex-1 min-w-0 flex items-center justify-center gap-2 text-[10px] font-mono text-neutral-300 select-none cursor-grab active:cursor-grabbing pr-0.5"
                 title="Double-click for full dashboard, right-click to choose metrics or quit"
               >
                 {/* CPU */}
@@ -541,6 +628,8 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 mood="idle"
                 isMusicPlaying={false}
                 cpuUsage={metrics.cpu_usage}
+                isCharging={metrics.is_charging}
+                isDragging={isDragging}
                 size="small"
                 onDoubleClick={() => setShowIdleStats(true)}
               />
@@ -575,6 +664,8 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                     mood="idle"
                     isMusicPlaying={media.is_playing}
                     cpuUsage={metrics.cpu_usage}
+                    isCharging={metrics.is_charging}
+                    isDragging={isDragging}
                     size="medium"
                   />
                   <div className="flex flex-col min-w-0 max-w-[190px]">

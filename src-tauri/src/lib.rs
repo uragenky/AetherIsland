@@ -595,6 +595,57 @@ fn set_island_window_size(
     Ok(())
 }
 
+#[tauri::command]
+fn change_volume(steps: i32) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        extern "system" {
+            fn keybd_event(b_vk: u8, b_scan: u8, dw_flags: u32, dw_extra_info: usize);
+        }
+        let vk = if steps > 0 { 0xAF } else { 0xAE }; // VK_VOLUME_UP (0xAF), VK_VOLUME_DOWN (0xAE)
+        let count = steps.abs().min(10);
+        for _ in 0..count {
+            keybd_event(vk, 0, 0, 0);
+            keybd_event(vk, 0, 0x0002, 0); // KEYEVENTF_KEYUP
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = steps;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn toggle_mute() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        extern "system" {
+            fn keybd_event(b_vk: u8, b_scan: u8, dw_flags: u32, dw_extra_info: usize);
+        }
+        keybd_event(0xAD, 0, 0, 0); // VK_VOLUME_MUTE
+        keybd_event(0xAD, 0, 0x0002, 0);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn launch_task_manager() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("taskmgr.exe")
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = std::process::Command::new("gnome-system-monitor")
+            .spawn()
+            .or_else(|_| std::process::Command::new("htop").spawn());
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let monitor = Arc::new(MonitorState::new());
@@ -713,6 +764,9 @@ pub fn run() {
             show_context_menu,
             exit_app,
             reset_island_position,
+            change_volume,
+            toggle_mute,
+            launch_task_manager,
         ])
         .run(tauri::generate_context!())
         .expect("error while running AetherIsland application");
