@@ -38,6 +38,7 @@ export const AmbientLyrics: React.FC<AmbientLyricsProps> = ({
     [processedLines, currentPositionMs, offsetMs]
   );
   const activeLine = activeIndex >= 0 ? processedLines[activeIndex] : null;
+  const romanized = activeLine?.romanized?.trim() || null;
 
   return (
     <div
@@ -50,7 +51,7 @@ export const AmbientLyrics: React.FC<AmbientLyricsProps> = ({
           initial={{ opacity: 0, y: 4, filter: 'blur(2px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          className="line-clamp-2 text-center font-medium text-[13px] leading-snug"
+          className="flex w-full flex-col items-center justify-center gap-0.5"
           style={{
             color: isAltHeld ? '#a5f3fc' : '#7dd3fc',
             textShadow: isAltHeld
@@ -58,7 +59,18 @@ export const AmbientLyrics: React.FC<AmbientLyricsProps> = ({
               : '0 1px 3px rgba(0,0,0,0.95), 0 0 8px rgba(56,189,248,0.35)',
           }}
         >
-          {activeLine.text}
+          <div
+            className={`w-full text-center font-medium text-[13px] leading-snug ${
+              romanized ? 'line-clamp-1' : 'line-clamp-2'
+            }`}
+          >
+            {activeLine.text}
+          </div>
+          {romanized && (
+            <div className="line-clamp-1 w-full text-center text-[10px] font-normal italic tracking-wide leading-tight opacity-80">
+              {romanized}
+            </div>
+          )}
         </motion.div>
       )}
     </div>
