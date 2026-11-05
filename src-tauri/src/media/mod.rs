@@ -266,7 +266,7 @@ mod windows_media {
                     .GetPlaybackInfo()
                     .ok()
                     .and_then(|pi| pi.Controls().ok())
-                    .and_then(|c| c.IsPlaybackPositionChangeEnabled().ok())
+                    .and_then(|c| c.IsPlaybackPositionEnabled().ok())
                     .unwrap_or(false);
 
                 if !is_seek_enabled {
