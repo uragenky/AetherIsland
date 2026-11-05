@@ -119,6 +119,7 @@ pub static LAST_CURSOR_IGNORED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
 #[cfg(target_os = "windows")]
+#[link(name = "user32")]
 extern "system" {
     fn GetAsyncKeyState(v_key: i32) -> i16;
 }

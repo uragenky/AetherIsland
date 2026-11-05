@@ -200,12 +200,13 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     try {
       localStorage.setItem('aether_transparent_mode', String(isTransparentMode));
     } catch {}
+    setIsHovered(false);
     invoke('set_transparent_mode', { enabled: isTransparentMode }).catch(() => {});
   }, [isTransparentMode]);
 
-  // Keep expanded dashboard interactable without requiring Alt hold
+  // Keep expanded / lyrics views interactable without requiring Alt hold
   useEffect(() => {
-    invoke('set_interactive_override', { active: mode === 'expanded' }).catch(() => {});
+    invoke('set_interactive_override', { active: mode !== 'compact' }).catch(() => {});
   }, [mode]);
 
   // Dynamically resize and re-center OS native window when mode changes
@@ -339,8 +340,12 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
 
   const [isHovered, setIsHovered] = useState(false);
 
-  // In transparent mode, hover actions only activate if Alt is held down (or if window is expanded)
-  const effectiveHovered = isTransparentMode && mode === 'compact' ? (isAltHeld && isHovered) : isHovered;
+  // In transparent mode, hover actions only activate while Alt is held (window is click-through otherwise)
+  const effectiveHovered = isTransparentMode
+    ? mode === 'compact'
+      ? isAltHeld
+      : isHovered
+    : isHovered;
 
   const pillWidth =
     mode === 'compact'
