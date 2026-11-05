@@ -193,7 +193,7 @@ export function App() {
       const updated = await invoke<MediaSessionInfo>('media_seek', { positionMs });
       setMedia(updated);
     } catch {
-      setMedia((prev) => ({ ...prev, position_ms: positionMs }));
+      // Seek failed - do not mutate position to keep lyrics synchronized
     }
   };
 

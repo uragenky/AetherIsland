@@ -82,18 +82,26 @@ impl MediaManager {
     }
 
     pub fn seek(&self, position_ms: u64) -> MediaSessionInfo {
+        #[allow(unused_mut)]
+        let mut seek_success = false;
         #[cfg(target_os = "windows")]
         {
-            let _ = windows_media::trigger_seek(position_ms);
+            if let Ok(success) = windows_media::trigger_seek(position_ms) {
+                seek_success = success;
+            }
         }
 
         let mut curr = self.current.lock().unwrap();
-        curr.position_ms = if curr.duration_ms > 0 {
-            position_ms.min(curr.duration_ms)
-        } else {
-            position_ms
-        };
-        *self.last_native_pos.lock().unwrap() = Some(curr.position_ms);
+        if seek_success {
+            curr.position_ms = if curr.duration_ms > 0 {
+                position_ms.min(curr.duration_ms)
+            } else {
+                position_ms
+            };
+            *self.last_native_pos.lock().unwrap() = Some(curr.position_ms);
+        }
+        // If seeking was not supported or failed (e.g. YouTube in browser, Foobar2000),
+        // do NOT mutate curr.position_ms so the seekbar snaps back to the real playing time
         curr.clone()
     }
 
@@ -249,13 +257,28 @@ mod windows_media {
         Err(())
     }
 
-    pub fn trigger_seek(position_ms: u64) -> Result<(), ()> {
+    pub fn trigger_seek(position_ms: u64) -> Result<bool, ()> {
         let op = GlobalSystemMediaTransportControlsSessionManager::RequestAsync();
         if let Ok(mgr) = op.and_then(|o| o.get()) {
             if let Ok(session) = mgr.GetCurrentSession() {
+                // Check if playback position changing is supported by the active player
+                let is_seek_enabled = session
+                    .GetPlaybackInfo()
+                    .ok()
+                    .and_then(|pi| pi.Controls().ok())
+                    .and_then(|c| c.IsPlaybackPositionChangeEnabled().ok())
+                    .unwrap_or(false);
+
+                if !is_seek_enabled {
+                    return Ok(false);
+                }
+
                 let pos_100ns = (position_ms as i64) * 10_000;
-                let _ = session.TryChangePlaybackPositionAsync(pos_100ns);
-                return Ok(());
+                if let Ok(async_op) = session.TryChangePlaybackPositionAsync(pos_100ns) {
+                    if let Ok(success) = async_op.get() {
+                        return Ok(success);
+                    }
+                }
             }
         }
         Err(())

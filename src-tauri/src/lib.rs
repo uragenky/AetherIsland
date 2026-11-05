@@ -106,7 +106,13 @@ fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
     })
 }
 
+pub static IS_POPUP_MENU_OPEN: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 pub fn ensure_always_on_top(window: &Window) {
+    if IS_POPUP_MENU_OPEN.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
     let _ = window.set_always_on_top(true);
 
     #[cfg(target_os = "windows")]
@@ -140,6 +146,7 @@ fn force_topmost(window: Window) {
 
 #[tauri::command]
 fn show_context_menu(window: Window) -> Result<(), String> {
+    IS_POPUP_MENU_OPEN.store(true, std::sync::atomic::Ordering::SeqCst);
     let menu = MenuBuilder::new(&window)
         .text("dashboard", "Toggle Dashboard")
         .text("stats", "Toggle Hardware Stats")
@@ -147,10 +154,18 @@ fn show_context_menu(window: Window) -> Result<(), String> {
         .separator()
         .text("exit", "Quit AetherIsland")
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            IS_POPUP_MENU_OPEN.store(false, std::sync::atomic::Ordering::SeqCst);
+            e.to_string()
+        })?;
 
-    window.popup_menu(&menu).map_err(|e| e.to_string())?;
-    Ok(())
+    let res = window.popup_menu(&menu);
+    // Cool down so SetWindowPos doesn't interrupt menu closure animation
+    std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        IS_POPUP_MENU_OPEN.store(false, std::sync::atomic::Ordering::SeqCst);
+    });
+    res.map_err(|e| e.to_string())
 }
 
 #[tauri::command]

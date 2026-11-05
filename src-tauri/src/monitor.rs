@@ -157,8 +157,10 @@ pub fn start_monitor_thread(app_handle: AppHandle, state: Arc<MonitorState>) {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(300));
         loop {
             interval.tick().await;
-            if let Some(win) = app_topmost.get_webview_window("main") {
-                crate::ensure_always_on_top(&win.as_ref().window());
+            if !crate::IS_POPUP_MENU_OPEN.load(std::sync::atomic::Ordering::Relaxed) {
+                if let Some(win) = app_topmost.get_webview_window("main") {
+                    crate::ensure_always_on_top(&win.as_ref().window());
+                }
             }
         }
     });
