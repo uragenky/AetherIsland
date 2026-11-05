@@ -390,8 +390,8 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         layout
         transition={{
           type: 'spring',
-          stiffness: 420,
-          damping: 30,
+          stiffness: 300,
+          damping: 26,
           mass: 0.8,
         }}
         onWheel={handleWheel}
@@ -423,47 +423,72 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
             ? 'inset 0 0 12px rgba(255, 255, 255, 0.08)'
             : 'inset 0 0 10px rgba(255, 255, 255, 0.04)',
         }}
-        className={`relative bg-black transition-all duration-300 ${
-          mode === 'compact'
-            ? isMediaActive
-              ? 'px-3 py-1 flex items-center justify-between'
-              : showIdleStats
-              ? 'px-3 py-1 flex items-center justify-between'
-              : 'px-2 py-1 flex items-center justify-center'
-            : 'p-3.5 flex flex-col justify-between'
-        }`}
+        className="relative bg-black flex items-center justify-center select-none"
       >
-        {/* Outward Concave Ear Wings and Notch Outline (Docked Mode Only) */}
+        {/* Outward Concave Ear Wings (Docked Mode Only - Pinned to absolute corners) */}
         {!isFloating && (
-          <svg
-            className="absolute inset-0 pointer-events-none select-none z-0"
-            style={{ overflow: 'visible', width: `${pillWidth}px`, height: `${pillHeight}px` }}
-          >
-            {/* Outer ear wings black fill (ONLY fills the 14x10 ear regions outside the div box) */}
+          <>
             {isDockTop && (
               <>
-                <path d="M -14 0 C -6.3 0 0 4.5 0 10 L 0 0 Z" fill="#000000" />
-                <path d={`M ${pillWidth} 10 C ${pillWidth} 4.5 ${pillWidth + 7.7} 0 ${pillWidth + 14} 0 L ${pillWidth} 0 Z`} fill="#000000" />
+                <svg
+                  className="absolute -left-[14px] top-0 pointer-events-none select-none z-0"
+                  width="14"
+                  height="10"
+                  viewBox="0 0 14 10"
+                  fill="none"
+                >
+                  <path d="M 0 0 C 7.7 0 14 4.5 14 10 L 14 0 Z" fill="#000000" />
+                </svg>
+                <svg
+                  className="absolute -right-[14px] top-0 pointer-events-none select-none z-0"
+                  width="14"
+                  height="10"
+                  viewBox="0 0 14 10"
+                  fill="none"
+                >
+                  <path d="M 0 10 C 0 4.5 7.7 0 14 0 L 0 0 Z" fill="#000000" />
+                </svg>
               </>
             )}
             {isDockBottom && (
               <>
-                <path d={`M -14 ${pillHeight} C -6.3 ${pillHeight} 0 ${pillHeight - 4.5} 0 ${pillHeight - 10} L 0 ${pillHeight} Z`} fill="#000000" />
-                <path d={`M ${pillWidth} ${pillHeight - 10} C ${pillWidth} ${pillHeight - 4.5} ${pillWidth + 7.7} ${pillHeight} ${pillWidth + 14} ${pillHeight} L ${pillWidth} ${pillHeight} Z`} fill="#000000" />
+                <svg
+                  className="absolute -left-[14px] bottom-0 pointer-events-none select-none z-0"
+                  width="14"
+                  height="10"
+                  viewBox="0 0 14 10"
+                  fill="none"
+                >
+                  <path d="M 0 10 C 7.7 10 14 5.5 14 0 L 14 10 Z" fill="#000000" />
+                </svg>
+                <svg
+                  className="absolute -right-[14px] bottom-0 pointer-events-none select-none z-0"
+                  width="14"
+                  height="10"
+                  viewBox="0 0 14 10"
+                  fill="none"
+                >
+                  <path d="M 0 0 C 0 5.5 7.7 10 14 10 L 0 10 Z" fill="#000000" />
+                </svg>
               </>
             )}
 
             {/* Seamless Notch Perimeter Stroke */}
-            <path
-              d={dockedPath}
-              fill="none"
-              stroke={dockedStrokeColor}
-              strokeWidth="1"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ transition: 'stroke 0.25s ease' }}
-            />
-          </svg>
+            <svg
+              className="absolute inset-0 pointer-events-none select-none z-0"
+              style={{ overflow: 'visible', width: `${pillWidth}px`, height: `${pillHeight}px` }}
+            >
+              <path
+                d={dockedPath}
+                fill="none"
+                stroke={dockedStrokeColor}
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ transition: 'stroke 0.25s ease' }}
+              />
+            </svg>
+          </>
         )}
 
         {/* Temporary Volume Feedback Overlay */}
@@ -484,12 +509,18 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           )}
         </AnimatePresence>
         {/* COMPACT MODE */}
-        {mode === 'compact' && (
-          isMediaActive ? (
-            <div
-              className="relative z-10 flex items-center justify-between w-full h-full gap-1.5 px-0.5"
-              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
-            >
+        <AnimatePresence mode="popLayout" initial={false}>
+          {mode === 'compact' && (
+            isMediaActive ? (
+              <motion.div
+                key="compact-media"
+                initial={{ opacity: 0, scale: 0.96, filter: 'blur(3px)' }}
+                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.96, filter: 'blur(3px)' }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="relative z-10 flex items-center justify-between w-full h-full gap-1.5 px-0.5"
+                style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}
+              >
               {/* Eyes Companion (Left) */}
               <div
                 className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
@@ -600,11 +631,16 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   className="w-0.5 bg-blue-400 rounded-full"
                 />
               </div>
-            </div>
+            </motion.div>
           ) : showIdleStats ? (
             /* IDLE STATS MODE: THE PARTITIONED HUD (CONCEPT A) */
-            <div
-              className="relative z-10 flex items-center w-full h-full"
+            <motion.div
+              key="compact-stats"
+              initial={{ opacity: 0, scale: 0.96, filter: 'blur(3px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 0.96, filter: 'blur(3px)' }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 flex items-center w-full h-full px-3 py-1"
               style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', height: '100%' }}
             >
               {/* Eyes Companion (Left Partition - double-click to collapse stats) */}
@@ -716,10 +752,15 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           ) : (
             /* IDLE MINIMALIST MODE: ONLY EYES COMPANION */
-            <div
+            <motion.div
+              key="compact-idle"
+              initial={{ opacity: 0, scale: 0.92, filter: 'blur(3px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 0.92, filter: 'blur(3px)' }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
@@ -727,7 +768,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 e.stopPropagation();
                 setShowIdleStats(true);
               }}
-              className="relative z-10 flex items-center justify-center w-full h-full cursor-pointer active:cursor-grabbing"
+              className="relative z-10 flex items-center justify-center w-full h-full px-2 py-1 cursor-pointer active:cursor-grabbing"
               title="Click to wink, double-click to view stats, drag to move"
             >
               <EyesCompanion
@@ -739,20 +780,21 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 size="small"
                 onDoubleClick={() => setShowIdleStats(true)}
               />
-            </div>
+            </motion.div>
           )
         )}
+        </AnimatePresence>
 
         {/* EXPANDED / LYRICS MODE */}
         {mode !== 'compact' && (
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout" initial={false}>
             <motion.div
               key={mode}
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              transition={{ duration: 0.18 }}
-              className={`relative z-10 flex ${isDockBottom ? 'flex-col-reverse' : 'flex-col'} w-full h-full justify-between`}
+              initial={{ opacity: 0, scale: 0.96, filter: 'blur(4px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 0.96, filter: 'blur(4px)' }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              className={`relative z-10 flex ${isDockBottom ? 'flex-col-reverse' : 'flex-col'} w-full h-full justify-between p-3.5`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Unified Header: Eyes Companion & Song Title/Artist (Draggable) */}

@@ -84,10 +84,10 @@ pub struct ScreenBounds {
     pub bottom: f64,
 }
 
-// Tighter magnetic snap attraction threshold (in logical pixels)
-const SNAP_THRESHOLD_TOP: f64 = 48.0;
-const SNAP_THRESHOLD_BOTTOM: f64 = 48.0;
-const SNAP_THRESHOLD_SIDES: f64 = 28.0;
+// Magnetic snap attraction threshold (half pill height: ~20.0px)
+const SNAP_THRESHOLD_TOP: f64 = 20.0;
+const SNAP_THRESHOLD_BOTTOM: f64 = 20.0;
+const SNAP_THRESHOLD_SIDES: f64 = 22.0;
 const SCREEN_MARGIN_X: f64 = 16.0;
 
 fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
