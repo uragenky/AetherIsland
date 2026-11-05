@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core';
 import { LyricsData, MediaSessionInfo, LyricsCandidate } from '../types';
 import { Sparkles, Disc3, Languages, Play, Pause, ListMusic, Check } from 'lucide-react';
-import { hasNonLatinScript, transliterateText } from '../utils/transliterate';
+import {
+  ProcessedLyricLine,
+  buildProcessedLines,
+  findActiveLyricIndex,
+} from '../utils/lyricsSync';
 
 interface SyncedLyricsViewProps {
   media: MediaSessionInfo;
@@ -14,12 +18,6 @@ interface SyncedLyricsViewProps {
   onBack: () => void;
   onLyricsChange?: (data: LyricsData) => void;
   isGhost?: boolean;
-}
-
-interface ProcessedLyricLine {
-  time_ms: number;
-  text: string;
-  romanized: string | null;
 }
 
 export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
@@ -165,37 +163,16 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
   };
 
   // Precompute transliteration once per track to eliminate runtime CPU overhead
-  const processedLines = useMemo<ProcessedLyricLine[]>(() => {
-    if (!lyricsData?.parsed_lines || lyricsData.parsed_lines.length === 0) {
-      return [];
-    }
-    return lyricsData.parsed_lines.map((line) => {
-      const isNonLatin = hasNonLatinScript(line.text);
-      return {
-        time_ms: line.time_ms,
-        text: line.text,
-        romanized: isNonLatin ? transliterateText(line.text) : null,
-      };
-    });
-  }, [lyricsData]);
-
-  // Subtle anticipation (250ms) + user offset
-  const BASE_LEAD_MS = 250;
+  const processedLines = useMemo<ProcessedLyricLine[]>(
+    () => buildProcessedLines(lyricsData),
+    [lyricsData]
+  );
 
   // Active line index lookup
-  const activeIndex = useMemo(() => {
-    if (processedLines.length === 0) return -1;
-    const effectiveTime = currentPositionMs + BASE_LEAD_MS + userOffsetMs;
-    let idx = -1;
-    for (let i = 0; i < processedLines.length; i++) {
-      if (processedLines[i].time_ms <= effectiveTime) {
-        idx = i;
-      } else {
-        break;
-      }
-    }
-    return idx;
-  }, [processedLines, currentPositionMs, userOffsetMs]);
+  const activeIndex = useMemo(
+    () => findActiveLyricIndex(processedLines, currentPositionMs, userOffsetMs),
+    [processedLines, currentPositionMs, userOffsetMs]
+  );
 
   // Smooth centering scroll handler using browser native centering
   const scrollToLine = useCallback((index: number) => {

@@ -7,6 +7,11 @@ import { MediaController } from './MediaController';
 import { SyncedLyricsView } from './SyncedLyricsView';
 import { SystemDashboard } from './SystemDashboard';
 import {
+  AmbientLyrics,
+  AMBIENT_LYRICS_GAP,
+  AMBIENT_LYRICS_HEIGHT,
+} from './AmbientLyrics';
+import {
   IslandMode,
   SystemMetrics,
   MediaSessionInfo,
@@ -45,6 +50,11 @@ const formatSpeed = (kbps: number) => {
   return `${kbps.toFixed(0)}K`;
 };
 
+const COMPACT_HEIGHT = 38;
+const AMBIENT_DOCKED_HEIGHT = COMPACT_HEIGHT + AMBIENT_LYRICS_GAP + AMBIENT_LYRICS_HEIGHT;
+const AMBIENT_FLOATING_HEIGHT =
+  COMPACT_HEIGHT + (AMBIENT_LYRICS_GAP + AMBIENT_LYRICS_HEIGHT) * 2;
+
 interface DynamicIslandProps {
   metrics: SystemMetrics;
   media: MediaSessionInfo;
@@ -73,6 +83,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const [dockStatus, setDockStatus] = useState<'top' | 'bottom' | 'floating'>('top');
   const [showIdleStats, setShowIdleStats] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  const isDockTop = dockStatus === 'top' && !isDragging;
+  const isDockBottom = dockStatus === 'bottom' && !isDragging;
+  const isFloating = !isDockTop && !isDockBottom;
   const [volumeFeedback, setVolumeFeedback] = useState<'up' | 'down' | null>(null);
   const volumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visibleStats, setVisibleStats] = useState<VisibleStatsConfig>(() => {
@@ -96,6 +110,15 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   });
   const [isAltHeld, setIsAltHeld] = useState<boolean>(false);
 
+  // Persistent Ambient Lyrics preference (Ghost Mode only)
+  const [showAmbientLyrics, setShowAmbientLyrics] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('aether_ambient_lyrics') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   const handleToggleStat = (key: keyof VisibleStatsConfig) => {
     setVisibleStats((prev) => {
       const next = { ...prev, [key]: !prev[key] };
@@ -107,7 +130,20 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   };
 
   const isMediaActive = Boolean(media.has_media && media.is_playing);
+  const hasLyrics = Boolean(lyricsData && lyricsData.parsed_lines && lyricsData.parsed_lines.length > 0);
   const hasBattery = metrics.battery_percentage !== undefined && metrics.battery_percentage !== null;
+
+  const isAmbientLyricsVisible =
+    isTransparentMode &&
+    mode === 'compact' &&
+    isMediaActive &&
+    hasLyrics &&
+    showAmbientLyrics;
+
+  const ambientAnchorTop = isAmbientLyricsVisible && dockStatus === 'top';
+  const ambientAnchorBottom = isAmbientLyricsVisible && dockStatus === 'bottom';
+  const anchorTop = isDockTop || ambientAnchorTop;
+  const anchorBottom = isDockBottom || ambientAnchorBottom;
 
   // Calculate dynamic width for compact stats pill based on visible metrics
   const statsWidth = React.useMemo(() => {
@@ -204,6 +240,13 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     invoke('set_transparent_mode', { enabled: isTransparentMode }).catch(() => {});
   }, [isTransparentMode]);
 
+  // Persist Ambient Lyrics preference
+  useEffect(() => {
+    try {
+      localStorage.setItem('aether_ambient_lyrics', String(showAmbientLyrics));
+    } catch {}
+  }, [showAmbientLyrics]);
+
   // Keep expanded / lyrics views interactable without requiring Alt hold
   useEffect(() => {
     invoke('set_interactive_override', { active: mode !== 'compact' }).catch(() => {});
@@ -216,12 +259,20 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         const isDocked = (dockStatus === 'top' || dockStatus === 'bottom') && !isDragging;
         const earBuffer = isDocked ? 30.0 : 0.0;
         if (mode === 'compact') {
-          if (isMediaActive) {
-            await invoke('set_island_window_size', { width: 370.0 + earBuffer, height: 38.0, yOffset: 0.0 });
+          if (isAmbientLyricsVisible) {
+            const ambientDocked = dockStatus === 'top' || dockStatus === 'bottom';
+            const height = ambientDocked ? AMBIENT_DOCKED_HEIGHT : AMBIENT_FLOATING_HEIGHT;
+            await invoke('set_island_window_size', {
+              width: 370.0 + earBuffer,
+              height,
+              yOffset: 0.0,
+            });
+          } else if (isMediaActive) {
+            await invoke('set_island_window_size', { width: 370.0 + earBuffer, height: COMPACT_HEIGHT, yOffset: 0.0 });
           } else if (showIdleStats) {
-            await invoke('set_island_window_size', { width: statsWidth + earBuffer, height: 38.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: statsWidth + earBuffer, height: COMPACT_HEIGHT, yOffset: 0.0 });
           } else {
-            await invoke('set_island_window_size', { width: 84.0 + earBuffer, height: 38.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: 84.0 + earBuffer, height: COMPACT_HEIGHT, yOffset: 0.0 });
           }
         } else {
           await invoke('set_island_window_size', { width: 430.0 + earBuffer, height: 276.0, yOffset: 0.0 });
@@ -231,7 +282,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       }
     };
     resizeWindow();
-  }, [mode, isMediaActive, showIdleStats, statsWidth, dockStatus, isDragging]);
+  }, [mode, isMediaActive, showIdleStats, statsWidth, dockStatus, isDragging, isAmbientLyricsVisible]);
 
   const toggleExpand = () => {
     if (mode === 'compact') {
@@ -240,8 +291,6 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       setMode('compact');
     }
   };
-
-  const hasLyrics = Boolean(lyricsData && lyricsData.parsed_lines && lyricsData.parsed_lines.length > 0);
 
   // Drag threshold handler to avoid swallowing clicks and double-clicks
   const dragStartRef = useRef<{ x: number; y: number; isDown: boolean } | null>(null);
@@ -334,10 +383,6 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const displayTrack = media.title ? `${media.title}${media.artist ? ` — ${media.artist}` : ''}` : 'No Track Playing';
   const romajiTrack = hasNonLatinScript(displayTrack) ? transliterateText(displayTrack) : null;
 
-  const isDockTop = dockStatus === 'top' && !isDragging;
-  const isDockBottom = dockStatus === 'bottom' && !isDragging;
-  const isFloating = !isDockTop && !isDockBottom;
-
   const [isHovered, setIsHovered] = useState(false);
 
   // In transparent mode, hover actions only activate while Alt is held (window is click-through otherwise)
@@ -355,7 +400,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         ? statsWidth
         : 84
       : 430;
-  const pillHeight = mode === 'compact' ? 38 : 276;
+  const pillHeight = mode === 'compact' ? COMPACT_HEIGHT : 276;
 
   // Background color for Solid vs Ghost (100% transparent)
   const pillBgColor = isTransparentMode ? 'transparent' : '#000000';
@@ -432,9 +477,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   return (
     <div
       className={`fixed inset-0 flex justify-center ${
-        isDockBottom
+        anchorBottom
           ? 'items-end'
-          : isDockTop
+          : anchorTop
           ? 'items-start'
           : 'items-center'
       } select-none pointer-events-auto`}
@@ -604,15 +649,29 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 />
               </div>
 
-              {/* Lyrics Icon Button (Shown if lyrics exist, click to open lyrics) */}
+              {/* Lyrics Icon Button (Shown if lyrics exist) */}
               {hasLyrics && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setMode('lyrics');
+                    if (isTransparentMode) {
+                      setShowAmbientLyrics((prev) => !prev);
+                    } else {
+                      setMode('lyrics');
+                    }
                   }}
-                  className="relative p-1 rounded-full text-cyan-400 hover:text-white hover:bg-cyan-500/20 transition-all cursor-pointer flex-shrink-0"
-                  title="Lyrics Available — Click to view Live Lyrics"
+                  className={`relative p-1 rounded-full transition-all cursor-pointer flex-shrink-0 ${
+                    isTransparentMode && showAmbientLyrics
+                      ? 'text-cyan-200'
+                      : 'text-cyan-400 hover:text-white hover:bg-cyan-500/20'
+                  }`}
+                  title={
+                    isTransparentMode
+                      ? showAmbientLyrics
+                        ? 'Hide Ambient Lyrics'
+                        : 'Show Ambient Lyrics'
+                      : 'Lyrics Available — Click to view Live Lyrics'
+                  }
                 >
                   <Mic2 className="w-3.5 h-3.5 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]" />
                   <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_4px_#22d3ee]" />
@@ -1057,6 +1116,29 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           </AnimatePresence>
         )}
       </motion.div>
+
+      {/* Ghost Mode Ambient Lyrics: single active line, adjacent to the untouched pill */}
+      {isAmbientLyricsVisible && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-20 flex justify-center px-3 pointer-events-none"
+          style={{
+            width: '370px',
+            ...(anchorBottom
+              ? { bottom: `${COMPACT_HEIGHT + AMBIENT_LYRICS_GAP}px` }
+              : anchorTop
+              ? { top: `${COMPACT_HEIGHT + AMBIENT_LYRICS_GAP}px` }
+              : { top: `calc(50% + ${COMPACT_HEIGHT / 2 + AMBIENT_LYRICS_GAP}px)` }),
+          }}
+          aria-live="polite"
+        >
+          <AmbientLyrics
+            media={media}
+            lyricsData={lyricsData}
+            currentPositionMs={media.position_ms}
+            isAltHeld={isAltHeld}
+          />
+        </div>
+      )}
     </div>
   );
 };
