@@ -45,6 +45,22 @@ export interface LyricsCandidate {
   has_synced: boolean;
 }
 
+export interface VisibleStatsConfig {
+  cpu: boolean;
+  ram: boolean;
+  gpu: boolean;
+  battery: boolean;
+  net: boolean;
+}
+
+export const DEFAULT_VISIBLE_STATS: VisibleStatsConfig = {
+  cpu: true,
+  ram: true,
+  gpu: true,
+  battery: true,
+  net: true,
+};
+
 export type IslandMode = 'compact' | 'expanded' | 'lyrics';
 
 export type EyeMood = 'idle' | 'happy' | 'groove' | 'look_at' | 'stress' | 'sleepy' | 'wink';

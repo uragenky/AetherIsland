@@ -11,6 +11,8 @@ import {
   SystemMetrics,
   MediaSessionInfo,
   LyricsData,
+  VisibleStatsConfig,
+  DEFAULT_VISIBLE_STATS,
 } from '../types';
 import {
   Activity,
@@ -68,19 +70,62 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const [activeTab, setActiveTab] = useState<'media' | 'system'>('media');
   const [dockStatus, setDockStatus] = useState<'top' | 'bottom' | 'floating'>('top');
   const [showIdleStats, setShowIdleStats] = useState(false);
-  const [statsPage, setStatsPage] = useState<0 | 1>(0);
+  const [visibleStats, setVisibleStats] = useState<VisibleStatsConfig>(() => {
+    try {
+      const saved = localStorage.getItem('aether_visible_stats');
+      if (saved) {
+        return { ...DEFAULT_VISIBLE_STATS, ...JSON.parse(saved) };
+      }
+    } catch {}
+    return DEFAULT_VISIBLE_STATS;
+  });
+
+  const handleToggleStat = (key: keyof VisibleStatsConfig) => {
+    setVisibleStats((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem('aether_visible_stats', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const isMediaActive = Boolean(media.has_media && media.is_playing);
   const hasBattery = metrics.battery_percentage !== undefined && metrics.battery_percentage !== null;
 
-  // Auto-rotate stats carousel page every 6.5s in idle stats mode
-  useEffect(() => {
-    if (!showIdleStats || isMediaActive || mode !== 'compact') return;
-    const interval = setInterval(() => {
-      setStatsPage((prev) => (prev === 0 ? 1 : 0));
-    }, 6500);
-    return () => clearInterval(interval);
-  }, [showIdleStats, isMediaActive, mode]);
+  // Calculate dynamic width for compact stats pill based on visible metrics
+  const statsWidth = React.useMemo(() => {
+    let contentWidth = 0;
+    let count = 0;
+    if (visibleStats.cpu) {
+      contentWidth += 44;
+      count++;
+    }
+    if (visibleStats.ram) {
+      contentWidth += 44;
+      count++;
+    }
+    if (visibleStats.gpu) {
+      contentWidth += 44;
+      count++;
+    }
+    if (visibleStats.battery && hasBattery) {
+      contentWidth += 46;
+      count++;
+    }
+    if (visibleStats.net) {
+      contentWidth += 92; // 44 down + 44 up + 4 gap
+      count++;
+    }
+
+    if (count === 0) {
+      return 84;
+    }
+
+    // Eyes (~32px) + padding (~24px) + inner gap (~16px) = 72px
+    const gapWidth = Math.max(0, count - 1) * 10;
+    return Math.max(120, 72 + contentWidth + gapWidth);
+  }, [visibleStats, hasBattery]);
 
   // Listen to real-time window movement & edge snap state from Tauri backend
   useEffect(() => {
@@ -107,10 +152,18 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       setShowIdleStats((prev) => !prev);
     });
 
+    const unlistenMenuStat = listen<string>('menu-toggle-stat', (event) => {
+      const statKey = event.payload as keyof VisibleStatsConfig;
+      if (statKey && ['cpu', 'ram', 'gpu', 'battery', 'net'].includes(statKey)) {
+        handleToggleStat(statKey);
+      }
+    });
+
     return () => {
       unlistenSnap.then((f) => f());
       unlistenDashboard.then((f) => f());
       unlistenStats.then((f) => f());
+      unlistenMenuStat.then((f) => f());
     };
   }, []);
 
@@ -122,7 +175,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
           if (isMediaActive) {
             await invoke('set_island_window_size', { width: 370.0, height: 38.0, yOffset: 0.0 });
           } else if (showIdleStats) {
-            await invoke('set_island_window_size', { width: 330.0, height: 38.0, yOffset: 0.0 });
+            await invoke('set_island_window_size', { width: statsWidth, height: 38.0, yOffset: 0.0 });
           } else {
             await invoke('set_island_window_size', { width: 84.0, height: 36.0, yOffset: 0.0 });
           }
@@ -134,7 +187,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       }
     };
     resizeWindow();
-  }, [mode, isMediaActive, showIdleStats, hasBattery]);
+  }, [mode, isMediaActive, showIdleStats, statsWidth]);
 
   const toggleExpand = () => {
     if (mode === 'compact') {
@@ -219,13 +272,22 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         }}
         onContextMenu={(e) => {
           e.preventDefault();
-          invoke('show_context_menu').catch(() => {});
+          invoke('show_context_menu', { config: visibleStats }).catch(() => {});
         }}
         onPointerEnter={() => {
           invoke('force_topmost').catch(() => {});
         }}
         style={{
           backgroundColor: '#000000',
+          width:
+            mode === 'compact'
+              ? isMediaActive
+                ? '370px'
+                : showIdleStats
+                ? `${statsWidth}px`
+                : '84px'
+              : '430px',
+          height: mode === 'compact' ? '38px' : '276px',
           borderTop: isDockTop ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
           borderBottom: isDockBottom ? 'none' : '1px solid rgba(255, 255, 255, 0.35)',
           borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
@@ -239,11 +301,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         className={`relative bg-black transition-all duration-300 ${
           mode === 'compact'
             ? isMediaActive
-              ? 'px-3 py-1 flex items-center justify-between w-[370px] h-[38px]'
+              ? 'px-3 py-1 flex items-center justify-between'
               : showIdleStats
-              ? 'px-3 py-1 flex items-center justify-between w-[330px] h-[38px]'
-              : 'px-2 py-1 flex items-center justify-center w-[84px] h-[36px]'
-            : 'p-3.5 w-[430px] h-[276px] flex flex-col justify-between'
+              ? 'px-3 py-1 flex items-center justify-between'
+              : 'px-2 py-1 flex items-center justify-center'
+            : 'p-3.5 flex flex-col justify-between'
         }`}
       >
         {/* COMPACT MODE */}
@@ -383,124 +445,82 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 />
               </div>
 
-              {/* Hardware Stats Carousel (Middle - Click to toggle page, double click for dashboard, scroll to toggle) */}
+              {/* Hardware Stats (Middle - Draggable, Double-click to expand dashboard) */}
               <div
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setStatsPage((prev) => (prev === 0 ? 1 : 0));
-                }}
-                onWheel={(e) => {
-                  e.stopPropagation();
-                  setStatsPage((prev) => (prev === 0 ? 1 : 0));
-                }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   toggleExpand();
                 }}
-                className="flex-1 min-w-0 flex items-center justify-center text-[10px] font-mono text-neutral-300 select-none cursor-grab active:cursor-grabbing px-1"
-                title="Click or scroll to switch page, double-click for full dashboard, drag to move"
+                className="flex-1 min-w-0 flex items-center justify-center gap-2.5 text-[10px] font-mono text-neutral-300 select-none cursor-grab active:cursor-grabbing px-1"
+                title="Double-click for full dashboard, right-click to choose metrics or quit"
               >
-                <AnimatePresence mode="wait">
-                  {statsPage === 0 ? (
-                    <motion.div
-                      key="page0-compute"
-                      initial={{ opacity: 0, y: 3 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -3 }}
-                      transition={{ duration: 0.18 }}
-                      className="flex items-center justify-center gap-2.5 flex-shrink-0"
-                    >
-                      {/* CPU */}
-                      <div className="flex items-center gap-1 flex-shrink-0" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
-                        <Cpu className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                        <span className={`tabular-nums text-left ${metrics.cpu_usage > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
-                          {metrics.cpu_usage.toFixed(0)}%
-                        </span>
-                      </div>
+                {/* CPU */}
+                {visibleStats.cpu && (
+                  <div className="flex items-center gap-1 w-[44px] flex-shrink-0" title={`CPU: ${metrics.cpu_usage.toFixed(0)}%`}>
+                    <Cpu className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                    <span className={`tabular-nums text-left ${metrics.cpu_usage > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
+                      {metrics.cpu_usage.toFixed(0)}%
+                    </span>
+                  </div>
+                )}
 
-                      <span className="text-neutral-700 flex-shrink-0">•</span>
+                {/* RAM */}
+                {visibleStats.ram && (
+                  <div className="flex items-center gap-1 w-[44px] flex-shrink-0" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
+                    <MemoryStick className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                    <span className={`tabular-nums text-left ${metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
+                      {metrics.ram_percentage.toFixed(0)}%
+                    </span>
+                  </div>
+                )}
 
-                      {/* RAM */}
-                      <div className="flex items-center gap-1 flex-shrink-0" title={`RAM: ${metrics.ram_percentage.toFixed(0)}%`}>
-                        <MemoryStick className="w-3 h-3 text-sky-400 flex-shrink-0" />
-                        <span className={`tabular-nums text-left ${metrics.ram_percentage > 85 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
-                          {metrics.ram_percentage.toFixed(0)}%
-                        </span>
-                      </div>
+                {/* GPU */}
+                {visibleStats.gpu && (
+                  <div className="flex items-center gap-1 w-[44px] flex-shrink-0" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
+                    <Gpu className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                    <span className={`tabular-nums text-left ${(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
+                      {(metrics.gpu_usage ?? 0).toFixed(0)}%
+                    </span>
+                  </div>
+                )}
 
-                      <span className="text-neutral-700 flex-shrink-0">•</span>
+                {/* Battery Indicator (if present) */}
+                {visibleStats.battery && hasBattery && (
+                  <div
+                    className="flex items-center gap-1 w-[46px] flex-shrink-0"
+                    title={metrics.is_charging ? `Charging: ${metrics.battery_percentage}%` : `Battery: ${metrics.battery_percentage}%`}
+                  >
+                    {metrics.is_charging ? (
+                      <BatteryCharging className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 animate-pulse" />
+                    ) : (metrics.battery_percentage ?? 100) > 75 ? (
+                      <BatteryFull className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                    ) : (metrics.battery_percentage ?? 100) > 25 ? (
+                      <BatteryMedium className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                    ) : (
+                      <BatteryLow className="w-3 h-3 text-rose-400 flex-shrink-0" />
+                    )}
+                    <span className={`tabular-nums text-left ${(metrics.battery_percentage ?? 100) <= 20 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
+                      {metrics.battery_percentage}%
+                    </span>
+                  </div>
+                )}
 
-                      {/* GPU */}
-                      <div className="flex items-center gap-1 flex-shrink-0" title={`GPU: ${(metrics.gpu_usage ?? 0).toFixed(0)}%`}>
-                        <Gpu className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                        <span className={`tabular-nums text-left ${(metrics.gpu_usage ?? 0) > 80 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
-                          {(metrics.gpu_usage ?? 0).toFixed(0)}%
-                        </span>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="page1-netpower"
-                      initial={{ opacity: 0, y: 3 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -3 }}
-                      transition={{ duration: 0.18 }}
-                      className="flex items-center justify-center gap-2.5 flex-shrink-0"
-                    >
-                      {/* Battery Indicator (if present) */}
-                      {hasBattery && (
-                        <>
-                          <div
-                            className="flex items-center gap-1 flex-shrink-0"
-                            title={metrics.is_charging ? `Charging: ${metrics.battery_percentage}%` : `Battery: ${metrics.battery_percentage}%`}
-                          >
-                            {metrics.is_charging ? (
-                              <BatteryCharging className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 animate-pulse" />
-                            ) : (metrics.battery_percentage ?? 100) > 75 ? (
-                              <BatteryFull className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                            ) : (metrics.battery_percentage ?? 100) > 25 ? (
-                              <BatteryMedium className="w-3 h-3 text-sky-400 flex-shrink-0" />
-                            ) : (
-                              <BatteryLow className="w-3 h-3 text-rose-400 flex-shrink-0" />
-                            )}
-                            <span className={`tabular-nums text-left ${(metrics.battery_percentage ?? 100) <= 20 ? 'text-rose-400 font-semibold' : 'text-neutral-100 font-medium'}`}>
-                              {metrics.battery_percentage}%
-                            </span>
-                          </div>
-                          <span className="text-neutral-700 flex-shrink-0">•</span>
-                        </>
-                      )}
-
-                      {/* Bandwidth Download & Upload */}
-                      <div className="flex items-center gap-2.5 font-semibold flex-shrink-0">
-                        <span className="flex items-center gap-1 text-emerald-300 flex-shrink-0" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
-                          <ArrowDown className="w-2.5 h-2.5 flex-shrink-0" />
-                          <span className="tabular-nums text-left">{formatSpeed(metrics.net_download_kbps)}</span>
-                        </span>
-                        <span className="flex items-center gap-1 text-sky-300 flex-shrink-0" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
-                          <ArrowUp className="w-2.5 h-2.5 flex-shrink-0" />
-                          <span className="tabular-nums text-left">{formatSpeed(metrics.net_upload_kbps)}</span>
-                        </span>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Page Indicator Dots */}
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setStatsPage((prev) => (prev === 0 ? 1 : 0));
-                }}
-                className="flex flex-col gap-1 items-center justify-center cursor-pointer flex-shrink-0 px-1"
-                title={`Page ${statsPage + 1}/2 (Click to switch)`}
-              >
-                <div className={`w-1 h-1 rounded-full transition-all duration-300 ${statsPage === 0 ? 'bg-cyan-400 scale-125' : 'bg-neutral-600'}`} />
-                <div className={`w-1 h-1 rounded-full transition-all duration-300 ${statsPage === 1 ? 'bg-cyan-400 scale-125' : 'bg-neutral-600'}`} />
+                {/* Bandwidth Download & Upload */}
+                {visibleStats.net && (
+                  <div className="flex items-center gap-1 font-semibold flex-shrink-0">
+                    <span className="flex items-center gap-0.5 text-emerald-300 w-[44px] flex-shrink-0" title={`Download: ${formatSpeed(metrics.net_download_kbps)}/s`}>
+                      <ArrowDown className="w-2.5 h-2.5 flex-shrink-0" />
+                      <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_download_kbps)}</span>
+                    </span>
+                    <span className="flex items-center gap-0.5 text-sky-300 w-[44px] flex-shrink-0" title={`Upload: ${formatSpeed(metrics.net_upload_kbps)}/s`}>
+                      <ArrowUp className="w-2.5 h-2.5 flex-shrink-0" />
+                      <span className="tabular-nums text-left truncate">{formatSpeed(metrics.net_upload_kbps)}</span>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -646,7 +666,11 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 />
               ) : (
                 <div className="flex flex-col gap-2.5">
-                  <SystemDashboard metrics={metrics} />
+                  <SystemDashboard
+                    metrics={metrics}
+                    visibleStats={visibleStats}
+                    onToggleStat={handleToggleStat}
+                  />
                   {/* Mini Media Bar inside System Tab */}
                   <div className="flex items-center justify-between bg-neutral-900/80 rounded-xl px-3 py-2 border border-white/5">
                     <div className="flex items-center gap-2.5 min-w-0">

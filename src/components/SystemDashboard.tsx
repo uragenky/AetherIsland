@@ -1,12 +1,18 @@
 import React from 'react';
 import { Cpu, MemoryStick, ArrowDown, ArrowUp, Battery, BatteryCharging, Gpu } from 'lucide-react';
-import { SystemMetrics } from '../types';
+import { SystemMetrics, VisibleStatsConfig } from '../types';
 
 interface SystemDashboardProps {
   metrics: SystemMetrics;
+  visibleStats?: VisibleStatsConfig;
+  onToggleStat?: (key: keyof VisibleStatsConfig) => void;
 }
 
-export const SystemDashboard: React.FC<SystemDashboardProps> = ({ metrics }) => {
+export const SystemDashboard: React.FC<SystemDashboardProps> = ({
+  metrics,
+  visibleStats,
+  onToggleStat,
+}) => {
   const getMetricColor = (val: number) => {
     if (val > 80) return 'text-rose-400 bg-rose-500/20';
     if (val > 50) return 'text-amber-400 bg-amber-500/20';
@@ -22,7 +28,42 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({ metrics }) => 
   const gpuVal = metrics.gpu_usage ?? 0;
 
   return (
-    <div className="grid grid-cols-3 gap-2 w-full text-white pt-1">
+    <div className="flex flex-col gap-2 w-full text-white pt-0.5">
+      {/* Toggle Chips Bar */}
+      {visibleStats && onToggleStat && (
+        <div className="flex items-center justify-between pb-1.5 border-b border-white/10 px-0.5 select-none">
+          <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Island Metrics</span>
+          <div className="flex items-center gap-1">
+            {(['cpu', 'ram', 'gpu', 'battery', 'net'] as const).map((key) => {
+              const labels: Record<string, string> = {
+                cpu: 'CPU',
+                ram: 'RAM',
+                gpu: 'GPU',
+                battery: 'Bat',
+                net: 'Net',
+              };
+              const isActive = visibleStats[key];
+              return (
+                <button
+                  key={key}
+                  onClick={() => onToggleStat(key)}
+                  className={`px-2 py-0.5 text-[10px] font-medium rounded-full transition-all border active:scale-95 cursor-pointer ${
+                    isActive
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 shadow-sm'
+                      : 'bg-white/5 text-neutral-500 border-white/5 hover:text-neutral-300 hover:bg-white/10'
+                  }`}
+                  title={`Toggle ${labels[key]} in compact island`}
+                >
+                  {isActive ? `✓ ${labels[key]}` : labels[key]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Grid of Metric Cards */}
+      <div className="grid grid-cols-3 gap-2 w-full">
       {/* CPU Metric Card */}
       <div className="flex items-center gap-2 bg-neutral-900/80 rounded-xl p-2 border border-white/10">
         <div className={`p-1.5 rounded-lg ${getMetricColor(metrics.cpu_usage)}`}>
@@ -95,5 +136,6 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({ metrics }) => 
         )}
       </div>
     </div>
+  </div>
   );
 };

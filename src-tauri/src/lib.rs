@@ -6,7 +6,10 @@ use lyrics::{LyricsData, LyricsState};
 use media::{MediaManager, MediaSessionInfo};
 use monitor::{MonitorState, SystemMetrics};
 use std::sync::Arc;
-use tauri::{menu::MenuBuilder, Emitter, Manager, State, Window};
+use tauri::{
+    menu::{CheckMenuItemBuilder, MenuBuilder, SubmenuBuilder},
+    Emitter, Manager, State, Window,
+};
 
 struct AppState {
     monitor: Arc<MonitorState>,
@@ -144,12 +147,69 @@ fn force_topmost(window: Window) {
     ensure_always_on_top(&window);
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Clone, Copy, Debug)]
+pub struct VisibleStatsConfig {
+    pub cpu: bool,
+    pub ram: bool,
+    pub gpu: bool,
+    pub battery: bool,
+    pub net: bool,
+}
+
 #[tauri::command]
-fn show_context_menu(window: Window) -> Result<(), String> {
+fn show_context_menu(window: Window, config: Option<VisibleStatsConfig>) -> Result<(), String> {
     IS_POPUP_MENU_OPEN.store(true, std::sync::atomic::Ordering::SeqCst);
+    let cfg = config.unwrap_or(VisibleStatsConfig {
+        cpu: true,
+        ram: true,
+        gpu: true,
+        battery: true,
+        net: true,
+    });
+
+    let check_cpu = CheckMenuItemBuilder::new("CPU Usage")
+        .id("toggle_cpu")
+        .checked(cfg.cpu)
+        .build(&window)
+        .map_err(|e| e.to_string())?;
+
+    let check_ram = CheckMenuItemBuilder::new("RAM Usage")
+        .id("toggle_ram")
+        .checked(cfg.ram)
+        .build(&window)
+        .map_err(|e| e.to_string())?;
+
+    let check_gpu = CheckMenuItemBuilder::new("GPU Usage")
+        .id("toggle_gpu")
+        .checked(cfg.gpu)
+        .build(&window)
+        .map_err(|e| e.to_string())?;
+
+    let check_battery = CheckMenuItemBuilder::new("Battery")
+        .id("toggle_battery")
+        .checked(cfg.battery)
+        .build(&window)
+        .map_err(|e| e.to_string())?;
+
+    let check_net = CheckMenuItemBuilder::new("Bandwidth (Net)")
+        .id("toggle_net")
+        .checked(cfg.net)
+        .build(&window)
+        .map_err(|e| e.to_string())?;
+
+    let stats_submenu = SubmenuBuilder::new(&window, "Visible Metrics")
+        .item(&check_cpu)
+        .item(&check_ram)
+        .item(&check_gpu)
+        .item(&check_battery)
+        .item(&check_net)
+        .build()
+        .map_err(|e| e.to_string())?;
+
     let menu = MenuBuilder::new(&window)
         .text("dashboard", "Toggle Dashboard")
         .text("stats", "Toggle Hardware Stats")
+        .item(&stats_submenu)
         .text("reset", "Reset Position")
         .separator()
         .text("exit", "Quit AetherIsland")
@@ -440,6 +500,21 @@ pub fn run() {
                 }
                 "stats" => {
                     let _ = app.emit("menu-toggle-stats", ());
+                }
+                "toggle_cpu" => {
+                    let _ = app.emit("menu-toggle-stat", "cpu");
+                }
+                "toggle_ram" => {
+                    let _ = app.emit("menu-toggle-stat", "ram");
+                }
+                "toggle_gpu" => {
+                    let _ = app.emit("menu-toggle-stat", "gpu");
+                }
+                "toggle_battery" => {
+                    let _ = app.emit("menu-toggle-stat", "battery");
+                }
+                "toggle_net" => {
+                    let _ = app.emit("menu-toggle-stat", "net");
                 }
                 "reset" => {
                     if let Some(win) = app.get_webview_window("main") {
