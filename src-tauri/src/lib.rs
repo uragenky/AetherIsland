@@ -186,6 +186,32 @@ pub struct VisibleStatsConfig {
     pub net: bool,
 }
 
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn menu_alt_filter_hook(
+    code: i32,
+    wparam: windows::Win32::Foundation::WPARAM,
+    lparam: windows::Win32::Foundation::LPARAM,
+) -> windows::Win32::Foundation::LRESULT {
+    // MSGF_MENU = 2 indicates message is being processed inside modal menu loop
+    if code == 2 && lparam.0 != 0 {
+        let msg = &*(lparam.0 as *const windows::Win32::UI::WindowsAndMessaging::MSG);
+        // Intercept Alt key press, release, and repeat messages during menu tracking:
+        // WM_KEYDOWN (0x0100), WM_KEYUP (0x0101), WM_SYSKEYDOWN (0x0104), WM_SYSKEYUP (0x0105) with VK_MENU (0x12)
+        if (msg.message == 0x0100 || msg.message == 0x0101 || msg.message == 0x0104 || msg.message == 0x0105)
+            && msg.wParam.0 == 0x12
+        {
+            // Drop Alt key message so TrackPopupMenu does not prematurely dismiss or cancel!
+            return windows::Win32::Foundation::LRESULT(1);
+        }
+    }
+    windows::Win32::UI::WindowsAndMessaging::CallNextHookEx(
+        windows::Win32::UI::WindowsAndMessaging::HHOOK(core::ptr::null_mut()),
+        code,
+        wparam,
+        lparam,
+    )
+}
+
 #[tauri::command]
 fn show_context_menu(
     window: Window,
@@ -263,13 +289,61 @@ fn show_context_menu(
             e.to_string()
         })?;
 
-    let res = window.popup_menu(&menu);
-    // Cool down so SetWindowPos doesn't interrupt menu closure animation
-    std::thread::spawn(|| {
-        std::thread::sleep(std::time::Duration::from_millis(400));
-        IS_POPUP_MENU_OPEN.store(false, std::sync::atomic::Ordering::SeqCst);
-    });
-    res.map_err(|e| e.to_string())
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::Foundation::{HINSTANCE, HWND};
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetWindowThreadProcessId, SetWindowsHookExW, UnhookWindowsHookEx,
+            WH_MSGFILTER,
+        };
+
+        let hook_handle = if let Ok(hwnd_ptr) = window.hwnd() {
+            unsafe {
+                let hwnd = HWND(hwnd_ptr.0);
+                let thread_id = GetWindowThreadProcessId(hwnd, None);
+
+                // Ensure cursor events are never ignored during context menu interaction
+                let _ = window.set_ignore_cursor_events(false);
+                LAST_CURSOR_IGNORED.store(false, std::sync::atomic::Ordering::SeqCst);
+
+                // Install thread-specific WH_MSGFILTER hook to shield TrackPopupMenu from Alt key cancel
+                SetWindowsHookExW(
+                    WH_MSGFILTER,
+                    Some(menu_alt_filter_hook),
+                    HINSTANCE(core::ptr::null_mut()),
+                    thread_id,
+                ).ok()
+            }
+        } else {
+            None
+        };
+
+        let res = window.popup_menu(&menu);
+
+        if let Some(hook) = hook_handle {
+            unsafe {
+                let _ = UnhookWindowsHookEx(hook);
+            }
+        }
+
+        // Cool down so SetWindowPos doesn't interrupt menu closure animation
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            IS_POPUP_MENU_OPEN.store(false, std::sync::atomic::Ordering::SeqCst);
+        });
+        res.map_err(|e| e.to_string())
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let res = window.popup_menu(&menu);
+        // Cool down so SetWindowPos doesn't interrupt menu closure animation
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            IS_POPUP_MENU_OPEN.store(false, std::sync::atomic::Ordering::SeqCst);
+        });
+        res.map_err(|e| e.to_string())
+    }
 }
 
 #[tauri::command]

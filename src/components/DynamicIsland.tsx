@@ -496,6 +496,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         onWheel={handleWheel}
         onContextMenu={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           invoke('show_context_menu', {
             config: visibleStats,
             transparentMode: isTransparentMode,

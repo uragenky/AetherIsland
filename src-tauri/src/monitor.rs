@@ -194,7 +194,7 @@ pub fn start_monitor_thread(app_handle: AppHandle, state: Arc<MonitorState>) {
                         let _ = window_ref.set_ignore_cursor_events(false);
                         crate::LAST_CURSOR_IGNORED.store(false, std::sync::atomic::Ordering::Relaxed);
                     }
-                    if last_alt {
+                    if last_alt && !is_popup_open {
                         last_alt = false;
                         let _ = app_topmost.emit("ghost-alt-state", false);
                     }
