@@ -174,9 +174,10 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       return 84;
     }
 
-    // Concept A: Perfectly Symmetric Partitioned HUD
-    // Left padding (12px) + eyes (~30px) + space to divider (10px) + divider (1.5px) + space to first stat (10px) + right padding (12px) = 75.5px (~76px)
-    const basePillWidth = 76;
+    // Concept A: Perfectly Symmetric Partitioned HUD (DOCUMENTATION.md §5.1: 120px - 340px x 38px)
+    // Left padding (12px) + eyes slot (36px) + space to divider (10px) + divider (1.5px) + space to first stat (10px) + right padding (12.5px) = 82px
+    // When all 5 metrics are active: 82 + 234 (stats) + 24 (4 gaps * 6px) = 340px (exact documentation max width)
+    const basePillWidth = 82;
     const gapWidth = Math.max(0, count - 1) * 6;
     return Math.max(120, basePillWidth + contentWidth + gapWidth);
   }, [visibleStats, hasBattery]);
@@ -765,13 +766,22 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
               exit={{ opacity: 0, scale: 0.96, filter: 'blur(3px)' }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 flex items-center w-full h-full px-3 py-1"
-              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', height: '100%' }}
+              className="relative z-10 flex items-center w-full h-full py-1 box-border"
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                width: '100%',
+                height: '100%',
+                paddingLeft: '12px',
+                paddingRight: '12.5px',
+                boxSizing: 'border-box',
+              }}
             >
               {/* Eyes Companion (Left Partition - double-click to collapse stats) */}
               <div
-                className="flex items-center flex-shrink-0 cursor-pointer"
-                style={{ display: 'inline-flex', alignItems: 'center' }}
+                className="flex items-center justify-center flex-shrink-0 cursor-pointer w-[36px]"
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px' }}
                 title="Double-click eye to hide stats, stroke to pet, click to wink"
               >
                 <EyesCompanion
