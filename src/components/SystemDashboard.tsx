@@ -33,9 +33,9 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
   onToggleStat,
   isGhost = false,
 }) => {
-  const [cpuHistory, setCpuHistory] = useState<number[]>(() => [metrics.cpu_usage]);
-  const [ramHistory, setRamHistory] = useState<number[]>(() => [metrics.ram_percentage]);
-  const [gpuHistory, setGpuHistory] = useState<number[]>(() => [metrics.gpu_usage ?? 0]);
+  const [cpuHistory, setCpuHistory] = useState<number[]>(() => [metrics.cpu_usage, metrics.cpu_usage]);
+  const [ramHistory, setRamHistory] = useState<number[]>(() => [metrics.ram_percentage, metrics.ram_percentage]);
+  const [gpuHistory, setGpuHistory] = useState<number[]>(() => [metrics.gpu_usage ?? 0, metrics.gpu_usage ?? 0]);
 
   useEffect(() => {
     setCpuHistory((prev) => [...prev.slice(-11), metrics.cpu_usage]);

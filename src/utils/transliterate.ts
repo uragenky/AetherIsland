@@ -294,7 +294,7 @@ const CYRILLIC_MAP: Record<string, string> = {
   'ъ': '', 'ы': 'y', 'ь': "'", 'э': 'e', 'ю': 'yu', 'я': 'ya',
   'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Yo',
   'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
-  'Н': 'N', 'О': 'O', 'P': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F',
+  'Н': 'N', 'О': 'O', 'Р': 'R', 'P': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F',
   'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch', 'Ъ': '', 'Ы': 'Y',
   'Ь': "'", 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya',
 };
@@ -367,8 +367,9 @@ export function transliterateText(text: string): string {
 
     // Dynamic Sokuon (っ / ッ)
     if (ch === 'っ' || ch === 'ッ') {
-      const nextChar = chars[i + 1] || '';
-      const nextRom = KANA_MAP[nextChar] || SINGLE_KANJI_MAP[nextChar] || ALL_KANJI_MAP[nextChar] || '';
+      const nextTwo = chars.slice(i + 1, i + 3).join('');
+      const nextOne = chars[i + 1] || '';
+      const nextRom = KANA_MAP[nextTwo] || KANA_MAP[nextOne] || SINGLE_KANJI_MAP[nextOne] || ALL_KANJI_MAP[nextOne] || '';
       if (nextRom) {
         const trimmed = nextRom.trim();
         const firstLetter = trimmed[0]?.toLowerCase() || 't';

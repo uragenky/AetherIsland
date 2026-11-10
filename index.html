@@ -16,13 +16,13 @@
         user-select: none !important;
         -webkit-user-select: none !important;
       }
-      *::-webkit-scrollbar {
+      html, body {
+        scrollbar-width: none !important;
+      }
+      html::-webkit-scrollbar, body::-webkit-scrollbar {
         display: none !important;
         width: 0 !important;
         height: 0 !important;
-      }
-      * {
-        scrollbar-width: none !important;
       }
     </style>
   </head>

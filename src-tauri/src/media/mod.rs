@@ -107,6 +107,12 @@ impl MediaManager {
 
     pub fn update_from_native(&self, info: MediaSessionInfo) {
         let mut curr = self.current.lock().unwrap();
+        if !info.has_media {
+            *curr = MediaSessionInfo::default();
+            *self.last_native_pos.lock().unwrap() = None;
+            return;
+        }
+
         let track_changed = curr.title != info.title || curr.artist != info.artist;
         if track_changed {
             *curr = info.clone();
@@ -128,10 +134,10 @@ impl MediaManager {
 
         if native_changed {
             *last_native = Some(info.position_ms);
-            // Only accept native position if it significantly jumped (> 3000ms seek)
-            // and prevent resetting to 0 while playback is active
+            // Accept native position if it significantly jumped (> 1500ms seek)
+            // or if it reset to 0 (rewind), or if playback is paused
             let diff = (info.position_ms as i64 - curr.position_ms as i64).abs();
-            if diff > 3000 && (info.position_ms > 0 || !curr.is_playing) {
+            if diff > 1500 || info.position_ms == 0 || !curr.is_playing {
                 curr.position_ms = info.position_ms;
             }
         }
@@ -151,7 +157,7 @@ pub fn start_media_service(app_handle: AppHandle, manager: Arc<MediaManager>) {
             interval.tick().await;
             {
                 let mut curr = manager.current.lock().unwrap();
-                if curr.is_playing {
+                if curr.has_media && curr.is_playing {
                     if curr.duration_ms > 0 {
                         curr.position_ms = (curr.position_ms + 500).min(curr.duration_ms);
                     } else {
@@ -172,10 +178,18 @@ mod windows_media {
 
     pub fn init_windows_smtc(app_handle: AppHandle, manager: Arc<MediaManager>) {
         std::thread::spawn(move || {
+            unsafe {
+                windows::Win32::System::Com::CoInitializeEx(
+                    None,
+                    windows::Win32::System::Com::COINIT_MULTITHREADED,
+                ).ok();
+            }
+
             let async_op = GlobalSystemMediaTransportControlsSessionManager::RequestAsync();
             if let Ok(session_manager) = async_op.and_then(|op| op.get()) {
-                // Poll or subscribe to session changes
+                // Poll session changes
                 loop {
+                    let mut session_found = false;
                     if let Ok(current_session) = session_manager.GetCurrentSession() {
                         if let Ok(media_props_op) = current_session.TryGetMediaPropertiesAsync() {
                             if let Ok(props) = media_props_op.get() {
@@ -201,6 +215,7 @@ mod windows_media {
                                     .unwrap_or(false);
 
                                 if !title.is_empty() {
+                                    session_found = true;
                                     let info = MediaSessionInfo {
                                         has_media: true,
                                         title,
@@ -218,6 +233,16 @@ mod windows_media {
                             }
                         }
                     }
+
+                    if !session_found {
+                        let had_media = manager.get_info().has_media;
+                        if had_media {
+                            let empty = MediaSessionInfo::default();
+                            manager.update_from_native(empty.clone());
+                            let _ = app_handle.emit("media-status", &empty);
+                        }
+                    }
+
                     std::thread::sleep(std::time::Duration::from_millis(1500));
                 }
             }

@@ -56,8 +56,8 @@ export function App() {
         // If same track is actively playing, gently blend drift and prevent micro-jitter rubberbanding
         if (sameTrack && incoming.is_playing && prev.position_ms > 500) {
           const drift = Math.abs(incoming.position_ms - prev.position_ms);
-          // If drift is small (< 850ms), preserve local smooth micro-clock to eliminate jitter
-          if (drift < 850 || incoming.position_ms === 0) {
+          // If drift is small (< 850ms) and NOT seeking to beginning, preserve local smooth micro-clock
+          if (drift < 850 && incoming.position_ms > 0) {
             return {
               ...incoming,
               position_ms: prev.position_ms,
@@ -89,7 +89,9 @@ export function App() {
     const durationSecs = media.duration_ms > 0 ? Math.floor(media.duration_ms / 1000) : undefined;
 
     // Check if user previously selected a custom lyric ID for this track
-    const prefKey = `custom_lyrics_${media.artist.trim().toLowerCase()}_${media.title.trim().toLowerCase()}`;
+    const artistClean = (media.artist || '').trim().toLowerCase();
+    const titleClean = (media.title || '').trim().toLowerCase();
+    const prefKey = `custom_lyrics_${artistClean}_${titleClean}`;
     const savedIdStr = localStorage.getItem(prefKey);
     const savedId = savedIdStr ? parseInt(savedIdStr, 10) : null;
 
@@ -113,6 +115,7 @@ export function App() {
 
     lyricsPromise
       .then((data) => {
+        if (lastTrackKey.current !== currentKey) return;
         setLyricsData(data);
         const resolvedDuration = data.duration_ms && data.duration_ms > 0
           ? data.duration_ms
@@ -128,6 +131,7 @@ export function App() {
         }
       })
       .catch(() => {
+        if (lastTrackKey.current !== currentKey) return;
         // Fallback or empty lyrics state
         setLyricsData({
           title: media.title,
@@ -138,7 +142,9 @@ export function App() {
         });
       })
       .finally(() => {
-        setIsLyricsLoading(false);
+        if (lastTrackKey.current === currentKey) {
+          setIsLyricsLoading(false);
+        }
       });
   }, [media.title, media.artist, media.duration_ms]);
 

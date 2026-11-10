@@ -84,11 +84,13 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const [showIdleStats, setShowIdleStats] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const isDockTop = dockStatus === 'top' && !isDragging;
-  const isDockBottom = dockStatus === 'bottom' && !isDragging;
+  const isDockTop = dockStatus === 'top';
+  const isDockBottom = dockStatus === 'bottom';
   const isFloating = !isDockTop && !isDockBottom;
   const [volumeFeedback, setVolumeFeedback] = useState<'up' | 'down' | null>(null);
   const volumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastWheelTimeRef = useRef<number>(0);
+  const wheelDeltaAccumRef = useRef<number>(0);
   const [visibleStats, setVisibleStats] = useState<VisibleStatsConfig>(() => {
     try {
       const saved = localStorage.getItem('aether_visible_stats');
@@ -129,7 +131,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     });
   };
 
-  const isMediaActive = Boolean(media.has_media && media.is_playing);
+  const isMediaActive = Boolean(media.has_media);
   const hasLyrics = Boolean(lyricsData && lyricsData.parsed_lines && lyricsData.parsed_lines.length > 0);
   const hasBattery = metrics.battery_percentage !== undefined && metrics.battery_percentage !== null;
 
@@ -334,10 +336,17 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     }
   };
 
-  // Mouse wheel volume scrubber on compact pill
+  // Mouse wheel volume scrubber on compact pill with smooth throttling
   const handleWheel = (e: React.WheelEvent) => {
     if (mode === 'compact') {
-      const steps = e.deltaY < 0 ? 1 : -1;
+      wheelDeltaAccumRef.current += e.deltaY;
+      const now = performance.now();
+      if (now - lastWheelTimeRef.current < 75 && Math.abs(wheelDeltaAccumRef.current) < 35) {
+        return;
+      }
+      const steps = wheelDeltaAccumRef.current < 0 ? 1 : -1;
+      wheelDeltaAccumRef.current = 0;
+      lastWheelTimeRef.current = now;
       invoke('change_volume', { steps }).catch(() => {});
       setVolumeFeedback(steps > 0 ? 'up' : 'down');
       if (volumeTimerRef.current) clearTimeout(volumeTimerRef.current);
@@ -743,17 +752,17 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 title="Double-click to expand dashboard"
               >
                 <motion.div
-                  animate={{ height: ['4px', '13px', '6px'] }}
+                  animate={media.is_playing ? { height: ['4px', '13px', '6px'] } : { height: '3px' }}
                   transition={{ repeat: Infinity, duration: 0.55 }}
                   className="w-0.5 bg-cyan-400 rounded-full"
                 />
                 <motion.div
-                  animate={{ height: ['12px', '5px', '14px'] }}
+                  animate={media.is_playing ? { height: ['12px', '5px', '14px'] } : { height: '3px' }}
                   transition={{ repeat: Infinity, duration: 0.45, delay: 0.1 }}
                   className="w-0.5 bg-sky-400 rounded-full"
                 />
                 <motion.div
-                  animate={{ height: ['5px', '14px', '4px'] }}
+                  animate={media.is_playing ? { height: ['5px', '14px', '4px'] } : { height: '3px' }}
                   transition={{ repeat: Infinity, duration: 0.65, delay: 0.2 }}
                   className="w-0.5 bg-blue-400 rounded-full"
                 />
@@ -934,7 +943,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
               exit={{ opacity: 0, scale: 0.96, filter: 'blur(4px)' }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className={`relative z-10 flex ${isDockBottom ? 'flex-col-reverse' : 'flex-col'} w-full h-full justify-between p-3.5`}
+              className="relative z-10 flex flex-col w-full h-full justify-between p-3.5"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Unified Header: Eyes Companion & Song Title/Artist (Draggable) */}
@@ -942,9 +951,9 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
-                className={`flex items-center justify-between ${
-                  isDockBottom ? 'pt-2 border-t mt-1.5' : 'pb-2 border-b mb-1.5'
-                } ${isTransparentMode ? 'border-transparent' : 'border-white/10'} cursor-grab active:cursor-grabbing flex-shrink-0`}
+                className={`flex items-center justify-between pb-2 border-b mb-1.5 ${
+                  isTransparentMode ? 'border-transparent' : 'border-white/10'
+                } cursor-grab active:cursor-grabbing flex-shrink-0`}
                 title="Drag header to move"
               >
                 <div className="flex items-center gap-2 select-none pointer-events-none min-w-0">

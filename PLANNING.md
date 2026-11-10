@@ -80,16 +80,18 @@ Dokumen ini merangkum rencana arsitektur dan eksekusi untuk peningkatan fitur, k
 
 ---
 
-## 4. Rencana Tahapan Eksekusi (Implementation Steps)
+## 4. Status Tahapan Eksekusi (Implementation Steps - COMPLETED)
 
-1. **Fase 1: Standarisasi Desain Token UI/UX**:
+1. **Fase 1: Standarisasi Desain Token UI/UX** [SELESAI]:
    - Harmonisasikan palet warna di `SyncedLyricsView.tsx`, `MediaController.tsx`, dan `DynamicIsland.tsx`.
-   - Ubah kontrol offset delay lirik ke palet cyan/sky blue.
-2. **Fase 2: Perbaikan Edge Continuity Docking**:
-   - Hapus padding luar `pt-1.5` / `pb-1.5`.
+   - Ubah kontrol offset delay lirik ke palet cyan/sky blue konsisten.
+   - Sediakan tombol tutup `✕ Close` yang mudah diakses pada modal lirik alternatif.
+2. **Fase 2: Perbaikan Edge Continuity Docking & Z-Order** [SELESAI]:
    - Terapkan logika radius adaptif (`0px` pada sisi yang menempel) saat expand.
-   - Uji transisi antara compact $\leftrightarrow$ expanded di tepi atas, bawah, dan floating.
-3. **Fase 3: Implementasi Pilihan Lirik Alternatif**:
-   - Buat command Rust `get_alternate_lyrics`.
-   - Tambahkan UI selector/modal mini di lirik toolbar.
-   - Tambahkan penyimpanan preferensi ke `localStorage`.
+   - Gunakan Win32 `rcWork` untuk mendock di atas Windows Taskbar secara akurat.
+   - Pasang *Start Menu Guard* dan *Fullscreen App Detection* untuk mencegah auto-dismiss dan gangguan gaming.
+3. **Fase 3: Implementasi Pilihan Lirik Alternatif & Deserialisasi LRCLIB** [SELESAI]:
+   - Perbaiki deserialisasi camelCase Serde (`artistName`, `albumName`, `trackName`).
+   - Command Rust `search_lyrics_candidates` dan `get_lyrics_by_id` terverifikasi via unit test.
+   - UI selector/modal mini di lirik toolbar dengan persistensi ke `localStorage`.
+   - Penanganan smart title/artist sanitizer untuk video YouTube `Artist - Title`.

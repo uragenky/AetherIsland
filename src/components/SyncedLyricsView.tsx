@@ -174,16 +174,21 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
     [processedLines, currentPositionMs, userOffsetMs]
   );
 
-  // Smooth centering scroll handler using browser native centering
+  // Smooth centering scroll handler using container-scoped scrolling to prevent document jitter
   const scrollToLine = useCallback((index: number) => {
     if (index < 0) return;
+    const container = containerRef.current;
     const lineEl = lineRefs.current[index];
-    if (!lineEl) return;
+    if (!container || !lineEl) return;
 
-    lineEl.scrollIntoView({
+    const containerHeight = container.clientHeight;
+    const lineTop = lineEl.offsetTop;
+    const lineHeight = lineEl.clientHeight;
+    const targetScroll = lineTop - containerHeight / 2 + lineHeight / 2;
+
+    container.scrollTo({
+      top: Math.max(0, targetScroll),
       behavior: 'smooth',
-      block: 'center',
-      inline: 'nearest',
     });
   }, []);
 
@@ -317,14 +322,23 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
         <div className="h-[142px] overflow-y-auto px-1 py-1 space-y-1.5 select-none scrollbar-thin">
           <div className="flex items-center justify-between text-[11px] px-1 text-neutral-400">
             <span>Select lyric version:</span>
-            {savedCustomId && (
+            <div className="flex items-center gap-2">
+              {savedCustomId && (
+                <button
+                  onClick={handleResetToDefault}
+                  className="text-cyan-400 hover:text-cyan-300 text-[10px] underline cursor-pointer"
+                >
+                  Reset to default
+                </button>
+              )}
               <button
-                onClick={handleResetToDefault}
-                className="text-cyan-400 hover:text-cyan-300 text-[10px] underline cursor-pointer"
+                onClick={() => setShowCandidateModal(false)}
+                className="text-neutral-400 hover:text-white text-[10px] bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                title="Back to active lyrics"
               >
-                Reset to default
+                ✕ Close
               </button>
-            )}
+            </div>
           </div>
           {isSearchingCandidates ? (
             <div className="flex flex-col items-center justify-center h-[100px] text-xs text-neutral-400 gap-2">
@@ -376,9 +390,9 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
                     >
                       {c.has_synced ? 'Synced' : 'Plain'}
                     </span>
-                    {c.duration && (
+                    {Boolean(c.duration && c.duration > 0) && (
                       <span className="text-[10px] font-mono text-neutral-400">
-                        {Math.floor(c.duration / 60)}:{(Math.floor(c.duration % 60)).toString().padStart(2, '0')}
+                        {Math.floor(c.duration! / 60)}:{(Math.floor(c.duration! % 60)).toString().padStart(2, '0')}
                       </span>
                     )}
                     {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400 ml-0.5" />}

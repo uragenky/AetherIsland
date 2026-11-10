@@ -94,6 +94,39 @@ fn get_monitor_screen_bounds(window: &Window) -> Option<ScreenBounds> {
     let monitor = window.current_monitor().ok().flatten()?;
     let scale_factor = monitor.scale_factor();
 
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::Foundation::{HWND, RECT};
+        use windows::Win32::Graphics::Gdi::{
+            GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+        };
+
+        if let Ok(hwnd_ptr) = window.hwnd() {
+            unsafe {
+                let hwnd = HWND(hwnd_ptr.0);
+                let hmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                let mut info = MONITORINFO {
+                    cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+                    rcMonitor: RECT::default(),
+                    rcWork: RECT::default(),
+                    dwFlags: 0,
+                };
+                if GetMonitorInfoW(hmonitor, &mut info).as_bool() {
+                    let left = info.rcWork.left as f64 / scale_factor;
+                    let top = info.rcWork.top as f64 / scale_factor;
+                    let right = info.rcWork.right as f64 / scale_factor;
+                    let bottom = info.rcWork.bottom as f64 / scale_factor;
+                    return Some(ScreenBounds {
+                        left,
+                        top,
+                        right,
+                        bottom,
+                    });
+                }
+            }
+        }
+    }
+
     let mon_pos = monitor.position();
     let mon_size = monitor.size();
     let left = mon_pos.x as f64 / scale_factor;
@@ -168,7 +201,87 @@ pub fn ensure_always_on_top(window: &Window) {
     }
 }
 
+#[cfg(target_os = "windows")]
+pub fn is_system_flyout_open() -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{GetClassNameW, GetForegroundWindow};
+    unsafe {
+        let fg = GetForegroundWindow();
+        if fg.0 == 0 {
+            return false;
+        }
+        let mut class_name = [0u16; 256];
+        let len = GetClassNameW(fg, &mut class_name);
+        if len > 0 {
+            let s = String::from_utf16_lossy(&class_name[..len as usize]);
+            if s == "Windows.UI.Core.CoreWindow"
+                || s == "StartMenuExperienceHost"
+                || s == "XamlExplorerHostIslandWindow"
+                || s == "Shell_LightDismissOverlay"
+                || s == "Shell_TrayWnd"
+                || s == "Shell_SecondaryTrayWnd"
+            {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn is_system_flyout_open() -> bool {
+    false
+}
+
+#[cfg(target_os = "windows")]
+pub fn is_foreground_fullscreen(window: &Window) -> bool {
+    use windows::Win32::Foundation::{HWND, RECT};
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowRect};
+    use windows::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    };
+
+    if let Ok(hwnd_ptr) = window.hwnd() {
+        unsafe {
+            let island_hwnd = HWND(hwnd_ptr.0);
+            let fg = GetForegroundWindow();
+            if fg.0 == 0 || fg == island_hwnd {
+                return false;
+            }
+            let mut rect = RECT::default();
+            if !GetWindowRect(fg, &mut rect).as_bool() {
+                return false;
+            }
+            let hmon = MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST);
+            let mut info = MONITORINFO {
+                cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+                rcMonitor: RECT::default(),
+                rcWork: RECT::default(),
+                dwFlags: 0,
+            };
+            if GetMonitorInfoW(hmon, &mut info).as_bool() {
+                // If foreground window covers the entire physical monitor
+                if rect.left <= info.rcMonitor.left
+                    && rect.top <= info.rcMonitor.top
+                    && rect.right >= info.rcMonitor.right
+                    && rect.bottom >= info.rcMonitor.bottom
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn is_foreground_fullscreen(_window: &Window) -> bool {
+    false
+}
+
 pub fn ensure_above_taskbar(window: &Window) {
+    if is_system_flyout_open() || is_foreground_fullscreen(window) {
+        return;
+    }
     ensure_always_on_top(window);
 }
 
@@ -722,8 +835,8 @@ pub fn run() {
 
             // Position initial window at top-center as a notch
             if let Some(window) = app.get_webview_window("main") {
-                let initial_w = 320.0;
-                let initial_h = 44.0;
+                let initial_w = 114.0;
+                let initial_h = 38.0;
                 if let Ok(Some(monitor)) = window.current_monitor() {
                     let scale_factor = monitor.scale_factor();
                     let screen_width = monitor.size().width as f64 / scale_factor;

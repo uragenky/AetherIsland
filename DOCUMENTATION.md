@@ -18,7 +18,7 @@
 | :--- | :--- | :--- |
 | **Desktop Application Framework** | **Tauri v2** | Combines the safety and low-level performance of Rust with modern Webview2 UI rendering. Eliminates Node/Chromium runtime overhead found in Electron. |
 | **Backend Core** | **Rust** (`windows-rs`, `tokio`, `sysinfo`) | Direct interop with Windows Win32 and WinRT COM APIs without C# runtime dependencies. Guarantees deterministic memory management and zero garbage collection pauses. |
-| **Frontend Framework** | **React 18 + TypeScript** | Strongly typed component tree for UI states (pill expansion, views, transitions). |
+| **Frontend Framework** | **React 19 + TypeScript** | Strongly typed component tree for UI states (pill expansion, views, transitions). |
 | **Styling & Motion** | **Tailwind CSS + Framer Motion** | Hardware-accelerated fluid spring dynamics for the signature liquid morphing island aesthetic. |
 | **Lyrics Provider** | **LRCLIB API** | Free, public, zero-authentication REST API providing synchronized time-tagged lyrics (`.lrc`). |
 
@@ -253,3 +253,4 @@ The island operates in three visual modes:
 - [x] **Phase 7**: Smart non-intrusive taskbar Z-order & Start Menu guard, native context menu, seekbar desync guard, and modular telemetry.
 - [x] **Phase 8**: Production packaging (NSIS .exe and WiX .msi bundle workflows).
 - [x] **Phase 9**: Interactive desktop pet emotions (dizzy drag, petting, charging flash, deep sleep), Concept A Partitioned HUD, master volume wheel scrubber, middle-click controls, and Task Manager sparklines.
+- [x] **Phase 10**: Complete system audit & bug remediation: LRCLIB camelCase deserialization & alternative candidate search, Start Menu guard & Fullscreen app suppression, Win32 rcWork bottom docking, media pause retention with player shutdown auto-reset, Cyrillic & Sokuon transliteration fixes, and smooth container-scoped lyrics scrolling.

@@ -52,16 +52,21 @@ export const EyesCompanion: React.FC<EyesCompanionProps> = ({
   const handlePointerMoveOverEyes = (e: React.PointerEvent) => {
     const now = Date.now();
     const state = pettingStrokesRef.current;
+    if (now - state.lastTime > 450) {
+      state.count = 0;
+      state.lastDir = 0;
+    }
     const deltaX = e.clientX - state.lastX;
 
     if (Math.abs(deltaX) > 4) {
       const dir = deltaX > 0 ? 1 : -1;
-      if (state.lastDir !== 0 && dir !== state.lastDir && now - state.lastTime < 450) {
+      if (state.lastDir !== 0 && dir !== state.lastDir) {
         state.count++;
         if (state.count >= 3) {
           setPettingHappy(true);
           setTimeout(() => setPettingHappy(false), 1400);
           state.count = 0;
+          state.lastDir = 0;
         }
       }
       state.lastDir = dir;

@@ -132,8 +132,26 @@ impl LyricsState {
         raw_artist: &str,
         duration_secs: Option<u64>,
     ) -> Result<LyricsData, String> {
-        let clean_title = Self::clean_title(raw_title);
-        let clean_artist = raw_artist.trim().to_string();
+        let mut clean_title = Self::clean_title(raw_title);
+        let mut clean_artist = raw_artist.trim().to_string();
+
+        let is_generic_artist = clean_artist.is_empty()
+            || clean_artist.eq_ignore_ascii_case("youtube")
+            || clean_artist.eq_ignore_ascii_case("google chrome")
+            || clean_artist.eq_ignore_ascii_case("msedge")
+            || clean_artist.eq_ignore_ascii_case("microsoft edge")
+            || clean_artist.eq_ignore_ascii_case("firefox")
+            || clean_artist.eq_ignore_ascii_case("opera")
+            || clean_artist.eq_ignore_ascii_case("brave");
+
+        if is_generic_artist && clean_title.contains(" - ") {
+            let parts: Vec<&str> = clean_title.splitn(2, " - ").collect();
+            if parts.len() == 2 && !parts[0].trim().is_empty() && !parts[1].trim().is_empty() {
+                clean_artist = parts[0].trim().to_string();
+                clean_title = parts[1].trim().to_string();
+            }
+        }
+
         let cache_key = format!("{}::{}", clean_artist.to_lowercase(), clean_title.to_lowercase());
 
         {
@@ -263,20 +281,37 @@ impl LyricsState {
         raw_title: &str,
         raw_artist: &str,
     ) -> Result<Vec<LyricsCandidate>, String> {
-        let clean_title = Self::clean_title(raw_title);
-        let clean_artist = raw_artist.trim();
+        let mut clean_title = Self::clean_title(raw_title);
+        let mut clean_artist = raw_artist.trim().to_string();
+
+        let is_generic_artist = clean_artist.is_empty()
+            || clean_artist.eq_ignore_ascii_case("youtube")
+            || clean_artist.eq_ignore_ascii_case("google chrome")
+            || clean_artist.eq_ignore_ascii_case("msedge")
+            || clean_artist.eq_ignore_ascii_case("microsoft edge")
+            || clean_artist.eq_ignore_ascii_case("firefox")
+            || clean_artist.eq_ignore_ascii_case("opera")
+            || clean_artist.eq_ignore_ascii_case("brave");
+
+        if is_generic_artist && clean_title.contains(" - ") {
+            let parts: Vec<&str> = clean_title.splitn(2, " - ").collect();
+            if parts.len() == 2 && !parts[0].trim().is_empty() && !parts[1].trim().is_empty() {
+                clean_artist = parts[0].trim().to_string();
+                clean_title = parts[1].trim().to_string();
+            }
+        }
 
         #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
         struct RawItem {
             id: u64,
-            #[serde(alias = "name")]
             track_name: Option<String>,
+            name: Option<String>,
             artist_name: Option<String>,
             album_name: Option<String>,
             duration: Option<f64>,
             #[serde(default)]
             instrumental: bool,
-            #[serde(rename = "syncedLyrics")]
             synced_lyrics: Option<String>,
         }
 
@@ -284,7 +319,7 @@ impl LyricsState {
         let url_structured = format!(
             "https://lrclib.net/api/search?track_name={}&artist_name={}",
             urlencoding::encode(&clean_title),
-            urlencoding::encode(clean_artist)
+            urlencoding::encode(&clean_artist)
         );
 
         let mut results: Vec<RawItem> = Vec::new();
@@ -322,7 +357,7 @@ impl LyricsState {
                     .unwrap_or(false);
                 LyricsCandidate {
                     id: item.id,
-                    track_name: item.track_name.unwrap_or_else(|| clean_title.clone()),
+                    track_name: item.track_name.or(item.name).unwrap_or_else(|| clean_title.clone()),
                     artist_name: item.artist_name.unwrap_or_else(|| clean_artist.to_string()),
                     album_name: item.album_name,
                     duration: item.duration,
@@ -344,14 +379,13 @@ impl LyricsState {
         let url = format!("https://lrclib.net/api/get/{}", id);
 
         #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
         struct RawLrclibGet {
-            #[serde(alias = "name")]
             track_name: Option<String>,
+            name: Option<String>,
             artist_name: Option<String>,
             duration: Option<f64>,
-            #[serde(rename = "syncedLyrics")]
             synced_lyrics: Option<String>,
-            #[serde(rename = "plainLyrics")]
             plain_lyrics: Option<String>,
         }
 
@@ -373,6 +407,7 @@ impl LyricsState {
 
         let title = data
             .track_name
+            .or(data.name)
             .unwrap_or_else(|| raw_title.unwrap_or_default());
         let artist = data
             .artist_name
@@ -462,5 +497,45 @@ mod tests {
         let parsed_neg = LyricsState::parse_lrc(sample_neg);
         assert_eq!(parsed_neg.len(), 1);
         assert_eq!(parsed_neg[0].time_ms, 10300);
+    }
+
+    #[test]
+    fn test_lrclib_json_deserialization() {
+        let json_data = r#"[
+            {
+                "id": 12345,
+                "name": "Hello",
+                "trackName": "Hello",
+                "artistName": "Adele",
+                "albumName": "25",
+                "duration": 296.0,
+                "instrumental": false,
+                "syncedLyrics": "[00:10.00]Hello"
+            }
+        ]"#;
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct RawItemTest {
+            id: u64,
+            track_name: Option<String>,
+            name: Option<String>,
+            artist_name: Option<String>,
+            album_name: Option<String>,
+            duration: Option<f64>,
+            #[serde(default)]
+            instrumental: bool,
+            synced_lyrics: Option<String>,
+        }
+
+        let items: Vec<RawItemTest> = serde_json::from_str(json_data).expect("deserialization failed");
+        let first = items.into_iter().next().expect("item missing");
+        assert_eq!(first.id, 12345);
+        assert_eq!(first.track_name.or(first.name).as_deref(), Some("Hello"));
+        assert_eq!(first.artist_name.as_deref(), Some("Adele"));
+        assert_eq!(first.album_name.as_deref(), Some("25"));
+        assert_eq!(first.duration, Some(296.0));
+        assert!(!first.instrumental);
+        assert_eq!(first.synced_lyrics.as_deref(), Some("[00:10.00]Hello"));
     }
 }

@@ -28,7 +28,7 @@ An ultra-lightweight, high-performance Dynamic Island utility for Windows with a
       - **Idle Stats: The Partitioned HUD (Konsep A)**: Menampilkan mata companion di sisi kiri, dibatasi garis partisi vertikal mikro (*hairline divider*) setinggi 14px, dan deretan stats modular di sisi kanan dengan padding simetris yang terhitung presisi (`statsWidth`).
       - **Safe OLED Inset Ambient Glow**: Pencahayaan ambient glow 100% menggunakan *inner glow* (`box-shadow: inset 0 0 16px ...`) dan border adaptif berwarna, menjamin 0% risiko bug transparansi / clipping kotak persegi pada Windows WebView2 & DWM.
       - **Smart Taskbar Z-Order Guard**: Island tetap berada di depan Windows Taskbar tanpa looping polling yang membebani DWM, serta dilengkapi proteksi Start Menu otomatis sehingga penekanan tombol Windows tidak menutup Start Menu.
-      - **Compact Media Pill**: Otomatis muncul saat media aktif dilengkapi tombol lirik cepat, kontrol lagu Previous/Play/Pause/Next bernuansa cyan/biru elektrik, serta visualizer audio.
+      - **Compact Media Pill**: Otomatis muncul saat media aktif dilengkapi tombol lirik cepat, kontrol lagu Previous/Play/Pause/Next bernuansa cyan/biru elektrik, serta visualizer audio responsif (menyesuaikan status playback dan tetap tersedia saat lagu di-pause, lalu kolaps otomatis saat player ditutup).
       - **Expanded Dashboard & Live Synced Lyrics**: Tampilan penuh dengan tab Media dan System.
     - **Kontrol Cepat Audio & Mouse**:
       - **Mouse Wheel Volume Scrubber**: Menggulirkan roda mouse (*scroll*) pada island compact langsung mengubah master volume Windows disertai feedback overlay visual.
@@ -69,7 +69,7 @@ An ultra-lightweight, high-performance Dynamic Island utility for Windows with a
 ## Tech Stack
 
 - **Backend**: Rust 2021 + Tauri v2 (`windows-rs`, `sysinfo`, `reqwest`, `tokio`, `regex`).
-- **Frontend**: React 18, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.
+- **Frontend**: React 19, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.
 
 ---
 

@@ -164,8 +164,8 @@ pub fn start_monitor_thread(app_handle: AppHandle, state: Arc<MonitorState>) {
             if let Some(win) = app_topmost.get_webview_window("main") {
                 let window_ref = win.as_ref().window();
 
-                // Periodic topmost maintenance every 100ms
-                if tick % 2 == 0 {
+                // Periodic topmost maintenance every 2000ms with Start Menu & Fullscreen guard
+                if tick % 40 == 0 {
                     crate::ensure_above_taskbar(&window_ref);
                 }
 
