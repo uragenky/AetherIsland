@@ -180,12 +180,24 @@ impl LyricsState {
             plain_lyrics: Option<String>,
         }
 
-        let resp = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to reach lyrics service: {}", e))?;
+        let mut resp = self.client.get(&url).send().await;
+
+        // If exact query with duration failed (e.g. 404 because track duration slightly deviates from LRCLIB entry),
+        // retry /api/get WITHOUT &duration before falling back to fuzzy search.
+        if duration_secs.is_some() && (resp.is_err() || !resp.as_ref().unwrap().status().is_success()) {
+            let fallback_url = format!(
+                "https://lrclib.net/api/get?track_name={}&artist_name={}",
+                urlencoding::encode(&clean_title),
+                urlencoding::encode(&clean_artist)
+            );
+            if let Ok(retry_resp) = self.client.get(&fallback_url).send().await {
+                if retry_resp.status().is_success() {
+                    resp = Ok(retry_resp);
+                }
+            }
+        }
+
+        let resp = resp.map_err(|e| format!("Failed to reach lyrics service: {}", e))?;
 
         if !resp.status().is_success() {
             // Try fuzzy search if exact match fails

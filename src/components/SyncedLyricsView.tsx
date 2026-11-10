@@ -174,21 +174,16 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
     [processedLines, currentPositionMs, userOffsetMs]
   );
 
-  // Smooth centering scroll handler using container-scoped scrolling to prevent document jitter
+  // Smooth centering scroll handler using browser native centering
   const scrollToLine = useCallback((index: number) => {
     if (index < 0) return;
-    const container = containerRef.current;
     const lineEl = lineRefs.current[index];
-    if (!container || !lineEl) return;
+    if (!lineEl) return;
 
-    const containerHeight = container.clientHeight;
-    const lineTop = lineEl.offsetTop;
-    const lineHeight = lineEl.clientHeight;
-    const targetScroll = lineTop - containerHeight / 2 + lineHeight / 2;
-
-    container.scrollTo({
-      top: Math.max(0, targetScroll),
+    lineEl.scrollIntoView({
       behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest',
     });
   }, []);
 

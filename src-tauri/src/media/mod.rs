@@ -201,11 +201,29 @@ mod windows_media {
                                 let mut pos_ms = 0;
                                 let mut dur_ms = 0;
                                 if let Ok(tl) = timeline {
-                                    if let Ok(pos) = tl.Position() {
-                                        pos_ms = (pos.Duration / 10000) as u64;
-                                    }
-                                    if let Ok(end) = tl.EndTime() {
-                                        dur_ms = (end.Duration / 10000) as u64;
+                                    let start_ticks = tl.StartTime().map(|t| t.Duration).unwrap_or(0);
+                                    let end_ticks = tl.EndTime().map(|t| t.Duration).unwrap_or(0);
+                                    let max_seek_ticks = tl.MaxSeekTime().map(|t| t.Duration).unwrap_or(0);
+                                    let min_seek_ticks = tl.MinSeekTime().map(|t| t.Duration).unwrap_or(0);
+                                    let pos_ticks = tl.Position().map(|t| t.Duration).unwrap_or(0);
+
+                                    let dur_ticks = if end_ticks > start_ticks {
+                                        end_ticks - start_ticks
+                                    } else if max_seek_ticks > min_seek_ticks {
+                                        max_seek_ticks - min_seek_ticks
+                                    } else {
+                                        end_ticks.max(max_seek_ticks)
+                                    };
+                                    dur_ms = if dur_ticks > 0 { (dur_ticks / 10000) as u64 } else { 0 };
+
+                                    let rel_pos_ticks = if start_ticks > 0 && pos_ticks >= start_ticks {
+                                        pos_ticks - start_ticks
+                                    } else {
+                                        pos_ticks
+                                    };
+                                    pos_ms = (rel_pos_ticks / 10000) as u64;
+                                    if dur_ms > 0 {
+                                        pos_ms = pos_ms.min(dur_ms);
                                     }
                                 }
 
@@ -298,7 +316,13 @@ mod windows_media {
                     return Ok(false);
                 }
 
-                let pos_100ns = (position_ms as i64) * 10_000;
+                let start_100ns = session
+                    .GetTimelineProperties()
+                    .ok()
+                    .and_then(|tl| tl.StartTime().ok())
+                    .map(|st| st.Duration)
+                    .unwrap_or(0);
+                let pos_100ns = (position_ms as i64) * 10_000 + start_100ns;
                 if let Ok(async_op) = session.TryChangePlaybackPositionAsync(pos_100ns) {
                     if let Ok(success) = async_op.get() {
                         return Ok(success);

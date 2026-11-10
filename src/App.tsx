@@ -53,8 +53,13 @@ export function App() {
         const incoming = event.payload;
         const sameTrack = incoming.title === prev.title && incoming.artist === prev.artist;
 
+        // If track changed, never leak previous track's duration or position
+        if (!sameTrack) {
+          return incoming;
+        }
+
         // If same track is actively playing, gently blend drift and prevent micro-jitter rubberbanding
-        if (sameTrack && incoming.is_playing && prev.position_ms > 500) {
+        if (incoming.is_playing && prev.position_ms > 500) {
           const drift = Math.abs(incoming.position_ms - prev.position_ms);
           // If drift is small (< 850ms) and NOT seeking to beginning, preserve local smooth micro-clock
           if (drift < 850 && incoming.position_ms > 0) {
@@ -117,16 +122,11 @@ export function App() {
       .then((data) => {
         if (lastTrackKey.current !== currentKey) return;
         setLyricsData(data);
-        const resolvedDuration = data.duration_ms && data.duration_ms > 0
-          ? data.duration_ms
-          : (data.parsed_lines && data.parsed_lines.length > 0
-              ? data.parsed_lines[data.parsed_lines.length - 1].time_ms + 15000
-              : 0);
-
-        if (resolvedDuration > 0) {
+        // Only fallback to LRCLIB duration if player provided duration is missing
+        if (data.duration_ms && data.duration_ms > 0) {
           setMedia((prev) => ({
             ...prev,
-            duration_ms: prev.duration_ms > 0 ? prev.duration_ms : resolvedDuration,
+            duration_ms: prev.duration_ms > 0 ? prev.duration_ms : data.duration_ms!,
           }));
         }
       })
