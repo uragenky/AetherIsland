@@ -206,7 +206,7 @@ pub fn is_system_flyout_open() -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{GetClassNameW, GetForegroundWindow};
     unsafe {
         let fg = GetForegroundWindow();
-        if fg.0 == 0 {
+        if fg.0.is_null() {
             return false;
         }
         let mut class_name = [0u16; 256];
@@ -244,11 +244,11 @@ pub fn is_foreground_fullscreen(window: &Window) -> bool {
         unsafe {
             let island_hwnd = HWND(hwnd_ptr.0);
             let fg = GetForegroundWindow();
-            if fg.0 == 0 || fg == island_hwnd {
+            if fg.0.is_null() || fg == island_hwnd {
                 return false;
             }
             let mut rect = RECT::default();
-            if !GetWindowRect(fg, &mut rect).as_bool() {
+            if GetWindowRect(fg, &mut rect).is_err() {
                 return false;
             }
             let hmon = MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST);
